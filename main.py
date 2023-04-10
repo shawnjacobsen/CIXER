@@ -45,7 +45,7 @@ def gpt3_embedding(content, engine='text-embedding-ada-002'):
     return vector
 
 
-def gpt3_completion(prompt, engine='text-davinci-003', temp=0.0, top_p=1.0, tokens=400, freq_pen=0.0, pres_pen=0.0, stop=['USER:', 'RAVEN:']):
+def gpt3_completion(prompt, engine='text-davinci-003', temp=0.0, top_p=1.0, tokens=400, freq_pen=0.0, pres_pen=0.0, stop=['USER:', 'CIXER:']):
     max_retry = 5
     retry = 0
     prompt = prompt.encode(encoding='ASCII',errors='ignore').decode()
@@ -90,7 +90,7 @@ if __name__ == '__main__':
     convo_length = 30
     openai.api_key = key_openai
     pinecone.init(api_key=key_pinecone, environment=env_pinecone)
-    vdb = pinecone.Index("raven-mvp")
+    vdb = pinecone.Index("cixer-mvp")
     while True:
         #### get user input, save it, vectorize it, save to pinecone
         payload = list()
@@ -112,12 +112,12 @@ if __name__ == '__main__':
         output = gpt3_completion(prompt)
         timestamp = time()
         timestring = timestamp_to_datetime(timestamp)
-        #message = '%s: %s - %s' % ('RAVEN', timestring, output)
+        #message = '%s: %s - %s' % ('CIXER', timestring, output)
         message = output
         vector = gpt3_embedding(message)
         unique_id = str(uuid4())
-        metadata = {'speaker': 'RAVEN', 'time': timestamp, 'message': message, 'timestring': timestring, 'uuid': unique_id}
+        metadata = {'speaker': 'CIXER', 'time': timestamp, 'message': message, 'timestring': timestring, 'uuid': unique_id}
         save_json('nexus/%s.json' % unique_id, metadata)
         payload.append((unique_id, vector))
         vdb.upsert(payload)
-        print('\n\nRAVEN: %s' % output) 
+        print('\n\nCIXER: %s' % output) 
