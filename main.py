@@ -85,7 +85,6 @@ def load_conversation(results):
     messages = [i['message'] for i in ordered]
     return '\n'.join(messages).strip()
 
-
 if __name__ == '__main__':
     print("test")
     convo_length = 30
