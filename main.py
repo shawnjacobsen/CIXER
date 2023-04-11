@@ -79,7 +79,7 @@ def gpt3_completion(prompt, engine='text-davinci-003', temp=0.0, top_p=1.0, toke
 def load_conversation(results):
     result = list()
     for m in results['matches']:
-        info = load_json('nexus/%s.json' % m['id'])
+        info = load_json('conversations/%s.json' % m['id'])
         result.append(info)
     ordered = sorted(result, key=lambda d: d['time'], reverse=False)  # sort them all chronologically
     messages = [i['message'] for i in ordered]
@@ -90,7 +90,7 @@ if __name__ == '__main__':
     convo_length = 30
     openai.api_key = key_openai
     pinecone.init(api_key=key_pinecone, environment=env_pinecone)
-    vdb = pinecone.Index("cixer-mvp")
+    vdb = pinecone.Index("cixer")
     while True:
         #### get user input, save it, vectorize it, save to pinecone
         payload = list()
@@ -102,12 +102,12 @@ if __name__ == '__main__':
         vector = gpt3_embedding(message)
         unique_id = str(uuid4())
         metadata = {'speaker': 'USER', 'time': timestamp, 'message': message, 'timestring': timestring, 'uuid': unique_id}
-        save_json('nexus/%s.json' % unique_id, metadata)
+        save_json('conversations/%s.json' % unique_id, metadata)
         payload.append((unique_id, vector))
         #### search for relevant messages, and generate a response
         results = vdb.query(vector=vector, top_k=convo_length)
         conversation = load_conversation(results)  # results should be a DICT with 'matches' which is a LIST of DICTS, with 'id'
-        prompt = open_file('prompt_response.txt').replace('<<CONVERSATION>>', conversation).replace('<<MESSAGE>>', a)
+        prompt = open_file('prompt.txt').replace('<<CONVERSATION>>', conversation).replace('<<MESSAGE>>', a)
         #### generate response, vectorize, save, etc
         output = gpt3_completion(prompt)
         timestamp = time()
@@ -117,7 +117,7 @@ if __name__ == '__main__':
         vector = gpt3_embedding(message)
         unique_id = str(uuid4())
         metadata = {'speaker': 'CIXER', 'time': timestamp, 'message': message, 'timestring': timestring, 'uuid': unique_id}
-        save_json('nexus/%s.json' % unique_id, metadata)
+        save_json('conversations/%s.json' % unique_id, metadata)
         payload.append((unique_id, vector))
         vdb.upsert(payload)
         print('\n\nCIXER: %s' % output) 
