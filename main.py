@@ -120,4 +120,4 @@ if __name__ == '__main__':
         save_json('conversations/%s.json' % unique_id, metadata)
         payload.append((unique_id, vector))
         vdb.upsert(payload)
-        print('\n\nCIXER: %s' % output) 
+        print('\n\nCIXER: %s' % output)
