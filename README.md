@@ -1,2 +1,2 @@
-# CIXER
-Chat-based integration with External Episodic Retrieval
+# chairGPT
+CHat-based Architecture with Integrated Recollection
