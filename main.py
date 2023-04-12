@@ -14,6 +14,7 @@ load_dotenv()
 key_openai = os.getenv("key_openai")
 key_pinecone = os.getenv("key_pinecone")
 env_pinecone = os.getenv("env_pinecone")
+idx_pinecone = os.getenv("idx_pinecone")
 
 def timestamp_to_datetime(unix_time):
     return datetime.datetime.fromtimestamp(unix_time).strftime("%A, %B %d, %Y at %I:%M%p %Z")
@@ -79,7 +80,7 @@ def gpt3_completion(prompt, engine='text-davinci-003', temp=0.0, top_p=1.0, toke
 def load_conversation(results):
     result = list()
     for m in results['matches']:
-        info = load_json('conversations/%s.json' % m['id'])
+        info = load_json(f"conversations/{m['id']}.json")
         result.append(info)
     ordered = sorted(result, key=lambda d: d['time'], reverse=False)  # sort them all chronologically
     messages = [i['message'] for i in ordered]
@@ -90,34 +91,49 @@ if __name__ == '__main__':
     convo_length = 30
     openai.api_key = key_openai
     pinecone.init(api_key=key_pinecone, environment=env_pinecone)
-    vdb = pinecone.Index("cixer")
+    vdb = pinecone.Index(idx_pinecone)
     while True:
-        #### get user input, save it, vectorize it, save to pinecone
+
+        # payload containing vectors to be sent to Pinecone
         payload = list()
-        a = input('\n\nUSER: ')
+
+        ##### USER PROMPT #####
+
+        # vectorize user input and append to payload
+        uuid_user = str(uuid4())
+        message = input('\n\nUSER: ')
+        vector = gpt3_embedding(message)
+        payload.append((uuid_user, vector))
+
+        # generate metadata for logging
         timestamp = time()
         timestring = timestamp_to_datetime(timestamp)
-        #message = '%s: %s - %s' % ('USER', timestring, a)
-        message = a
-        vector = gpt3_embedding(message)
-        unique_id = str(uuid4())
-        metadata = {'speaker': 'USER', 'time': timestamp, 'message': message, 'timestring': timestring, 'uuid': unique_id}
-        save_json('conversations/%s.json' % unique_id, metadata)
-        payload.append((unique_id, vector))
-        #### search for relevant messages, and generate a response
+        metadata_user = {'speaker': 'USER', 'time': timestamp, 'message': message, 'timestring': timestring, 'uuid': uuid_user}
+
+        # save user metadata
+        save_json(f"conversations/{uuid_user}.json", metadata_user)
+    
+        ##### BOT RESPONSE #####
+
+        # search for relevant messages, and generate a response
         results = vdb.query(vector=vector, top_k=convo_length)
         conversation = load_conversation(results)  # results should be a DICT with 'matches' which is a LIST of DICTS, with 'id'
-        prompt = open_file('prompt.txt').replace('<<CONVERSATION>>', conversation).replace('<<MESSAGE>>', a)
-        #### generate response, vectorize, save, etc
-        output = gpt3_completion(prompt)
+        prompt = open_file('prompt.txt').replace('<<CONVERSATION>>', conversation).replace('<<MESSAGE>>', message)
+        
+        # generate response, vectorize, save to pinecone, print response
+        uuid_bot = str(uuid4())
+        response = gpt3_completion(prompt)
+        vector = gpt3_embedding(response)
+        payload.append((uuid_bot, vector))
+        print(f"\n\nCIXER: {response}")
+
+        # generate metadata for logging
         timestamp = time()
         timestring = timestamp_to_datetime(timestamp)
-        #message = '%s: %s - %s' % ('CIXER', timestring, output)
-        message = output
-        vector = gpt3_embedding(message)
-        unique_id = str(uuid4())
-        metadata = {'speaker': 'CIXER', 'time': timestamp, 'message': message, 'timestring': timestring, 'uuid': unique_id}
-        save_json('conversations/%s.json' % unique_id, metadata)
-        payload.append((unique_id, vector))
+        metadata_bot = {'speaker': 'CIXER', 'time': timestamp, 'message': response, 'timestring': timestring, 'uuid': uuid_bot}
+
+        # save bot metadata
+        save_json(f"conversations/{uuid_bot}.json", metadata_bot)
+
+        ##### save payload to pincecone #####
         vdb.upsert(payload)
-        print('\n\nCIXER: %s' % output)
