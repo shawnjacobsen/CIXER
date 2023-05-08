@@ -1,9 +1,17 @@
 import os
+import io
 import re
 import json
+import requests
 import datetime
 from uuid import uuid4
 from time import time,sleep
+
+# document chunk management
+import pdfplumber
+from shareplum import Site
+from shareplum import Office365
+from langchain.text_splitter import CharacterTextSplitter
 
 import openai
 import pinecone
@@ -45,9 +53,38 @@ def gpt3_embedding(content, engine='text-embedding-ada-002'):
     vector = response['data'][0]['embedding']  # this is a normal list
     return vector
 
-def get_sharepoint_document()
-def user_has_access(sharepoint, userId, docId):
-    return True
+def get_sharepoint_document(sharepoint_file_url, sharepoint_authcookie, document_index):
+    
+    # get PDF file from sharepoint
+    response = requests.get(sharepoint_file_url, cookie=sharepoint_authcookie)
+    pdf_content = response.content
+
+    # Read the PDF and extract text
+    pdf_stream = io.BytesIO(pdf_content)
+    
+    full_file_text = ""
+    with pdfplumber.open(pdf_stream) as pdf:
+        for page in pdf.pages:
+            full_file_text += page.extract_text()
+
+    # get corresponding document chunk by its index
+    text_splitter = CharacterTextSplitter(separator = "\n", chunk_size = 1000, chunk_overlap  = 200, length_function = len)
+    chunks = text_splitter.split_text(full_file_text)
+    if (document_index < len(chunks) - 1):
+        document_index = len(chunks) - 1
+    document = chunks[document_index]
+    return document
+
+def user_has_access_to_file(auth_token, user_email, sharepoint_file_location):
+    headers = {'Authorization': f'Bearer {auth_token}'}
+    file_url = f'https://graph.microsoft.com/v1.0/sites/root/drive/root:/{sharepoint_file_location}:/permissions'
+    response = requests.get(file_url, headers=headers)
+    permissions = response.json().get('value', [])
+
+    for permission in permissions:
+        if permission.get('grantedTo', {}).get('user', {}).get('email') == user_email and permission.get('roles'):
+            return True
+    return False
 
 def retrieve_accessible_documents(vdb, userId:str, k=6, threshold=2, max_tries=3):
     """_summary_
@@ -66,10 +103,16 @@ def retrieve_accessible_documents(vdb, userId:str, k=6, threshold=2, max_tries=3
     # query response { 'matches': [{'id','score','values', 'metadata':{ 'sharepoint_file_id', 'document_index' }}] }
     res = vdb.query(vector=vector, top_k=k, include_metadata=True)
     matches = res['matches']
-
     
-
-    return doc_vectors
+    # list(str) of similar documents that the user has access to
+    accessible_documents = []
+    # WIP
+    for match in matches:
+        doc_contents = ""
+        if user_has_access_to_file():
+            accessible_documents.append(doc_contents)
+    
+    return accessible_documents
 
 def gpt3_completion(prompt, engine='text-davinci-003', temp=0.0, top_p=1.0, tokens=400, freq_pen=0.0, pres_pen=0.0, stop=['USER:', 'ASSISTANT:']):
     max_retry = 5
