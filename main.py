@@ -45,8 +45,33 @@ def gpt3_embedding(content, engine='text-embedding-ada-002'):
     vector = response['data'][0]['embedding']  # this is a normal list
     return vector
 
+def get_sharepoint_document()
+def user_has_access(sharepoint, userId, docId):
+    return True
 
-def gpt3_completion(prompt, engine='text-davinci-003', temp=0.0, top_p=1.0, tokens=400, freq_pen=0.0, pres_pen=0.0, stop=['USER:', 'CIXER:']):
+def retrieve_accessible_documents(vdb, userId:str, k=6, threshold=2, max_tries=3):
+    """_summary_
+
+    Args:
+        vdb (Pinecone DB): Pinecone Object used to query pinecone for vectors
+        userId (str): sharepoint user id to check if user has access to some given Sharepoint document
+        k (int, optional): number of semantically similar documents to poll for at a time. Defaults to 6.
+        threshold (int, optional): min number of documents to return. Defaults to 2.
+        max_tries (int, optional): number of repolls to reach threshold. Defaults to 3.
+
+    Returns:
+        list(str): list of similar documents
+    """
+
+    # query response { 'matches': [{'id','score','values', 'metadata':{ 'sharepoint_file_id', 'document_index' }}] }
+    res = vdb.query(vector=vector, top_k=k, include_metadata=True)
+    matches = res['matches']
+
+    
+
+    return doc_vectors
+
+def gpt3_completion(prompt, engine='text-davinci-003', temp=0.0, top_p=1.0, tokens=400, freq_pen=0.0, pres_pen=0.0, stop=['USER:', 'ASSISTANT:']):
     max_retry = 5
     retry = 0
     prompt = prompt.encode(encoding='ASCII',errors='ignore').decode()
@@ -60,7 +85,8 @@ def gpt3_completion(prompt, engine='text-davinci-003', temp=0.0, top_p=1.0, toke
                 top_p=top_p,
                 frequency_penalty=freq_pen,
                 presence_penalty=pres_pen,
-                stop=stop)
+                stop=stop
+            )
             text = response['choices'][0]['text'].strip()
             text = re.sub('[\r\n]+', '\n', text)
             text = re.sub('[\t ]+', ' ', text)
@@ -69,13 +95,12 @@ def gpt3_completion(prompt, engine='text-davinci-003', temp=0.0, top_p=1.0, toke
                 os.makedirs('gpt3_logs')
             save_file('gpt3_logs/%s' % filename, prompt + '\n\n==========\n\n' + text)
             return text
-        except Exception as oops:
+        except Exception as error:
             retry += 1
             if retry >= max_retry:
-                return "GPT3 error: %s" % oops
-            print('Error communicating with OpenAI:', oops)
+                return "GPT3 error: %s" % error
+            print('Error communicating with OpenAI:', error)
             sleep(1)
-
 
 def load_conversation(results):
     result = list()
