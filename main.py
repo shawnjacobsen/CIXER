@@ -53,10 +53,23 @@ def gpt3_embedding(content, engine='text-embedding-ada-002'):
     vector = response['data'][0]['embedding']  # this is a normal list
     return vector
 
-def get_sharepoint_document(sharepoint_file_url, sharepoint_authcookie, document_index):
+def get_access_token(client_id, client_secret, tenant_id):
+    token_url = f'https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token'
+    token_payload = {
+        'grant_type': 'client_credentials',
+        'client_id': client_id,
+        'client_secret': client_secret,
+        'scope': 'https://graph.microsoft.com/.default'
+    }
+    response = requests.post(token_url, data=token_payload)
+    access_token = response.json().get('access_token')
+    return access_token
+
+def get_sharepoint_document(auth_token, sharepoint_file_url, document_index):
     
     # get PDF file from sharepoint
-    response = requests.get(sharepoint_file_url, cookie=sharepoint_authcookie)
+    headers = {'Authorization': f'Bearer {auth_token}'}
+    response = requests.get(sharepoint_file_url, headers=headers)
     pdf_content = response.content
 
     # Read the PDF and extract text
@@ -70,7 +83,7 @@ def get_sharepoint_document(sharepoint_file_url, sharepoint_authcookie, document
     # get corresponding document chunk by its index
     text_splitter = CharacterTextSplitter(separator = "\n", chunk_size = 1000, chunk_overlap  = 200, length_function = len)
     chunks = text_splitter.split_text(full_file_text)
-    if (document_index < len(chunks) - 1):
+    if (document_index > len(chunks) - 1):
         document_index = len(chunks) - 1
     document = chunks[document_index]
     return document
@@ -86,12 +99,13 @@ def user_has_access_to_file(auth_token, user_email, sharepoint_file_location):
             return True
     return False
 
-def retrieve_accessible_documents(vdb, userId:str, k=6, threshold=2, max_tries=3):
+def retrieve_accessible_documents(vdb, sharepoint_auth_token, user_email:str, k=6, threshold=2, max_tries=3):
     """_summary_
 
     Args:
         vdb (Pinecone DB): Pinecone Object used to query pinecone for vectors
-        userId (str): sharepoint user id to check if user has access to some given Sharepoint document
+        sharepoint_auth_token (str): returned auth token from login.microsoftonline.com
+        user_email (str): sharepoint user email to check if user has access to some given Sharepoint document
         k (int, optional): number of semantically similar documents to poll for at a time. Defaults to 6.
         threshold (int, optional): min number of documents to return. Defaults to 2.
         max_tries (int, optional): number of repolls to reach threshold. Defaults to 3.
@@ -100,18 +114,37 @@ def retrieve_accessible_documents(vdb, userId:str, k=6, threshold=2, max_tries=3
         list(str): list of similar documents
     """
 
-    # query response { 'matches': [{'id','score','values', 'metadata':{ 'sharepoint_file_id', 'document_index' }}] }
-    res = vdb.query(vector=vector, top_k=k, include_metadata=True)
-    matches = res['matches']
-    
     # list(str) of similar documents that the user has access to
+    previously_queried_vectors = []
     accessible_documents = []
-    # WIP
-    for match in matches:
-        doc_contents = ""
-        if user_has_access_to_file():
-            accessible_documents.append(doc_contents)
-    
+    tries = 0
+
+    # continue to query until meeting threshold or maximum tries are met
+    while (len(accessible_documents) < threshold and tries < max_tries):
+        # for current try, retrieve k + number of previously queried vectors to get new vectors
+        num_vectors_to_retrieve = k + len(previously_queried_vectors)
+        # query response { 'matches': [{'id','score','values', 'metadata':{ 'sharepoint_file_loc', 'document_index' }}] }
+        res = vdb.query(vector=vector, top_k=k, include_metadata=True, exclude=previously_queried_vectors)
+        matches = res['matches']
+        ids = [match['id'] for match in matches]
+        previously_queried_vectors += ids
+
+        # Filter out elements in matches whose 'id' is in previously_queried_vectors
+        matches = [match for match in matches if match['id'] not in previously_queried_vectors]
+        
+        # append document content if the user has access
+        for match in matches:
+            if user_has_access_to_file(sharepoint_auth_token, user_email, match['metadata']['sharepoint_file_loc']):
+                doc_contents = get_sharepoint_document(
+                    sharepoint_auth_token,
+                    match['metadata']['sharepoint_file_loc'],
+                    match['metadata']['document_index']
+                    )
+                accessible_documents.append(doc_contents)
+        
+        # increment number of tries
+        tries += 1
+
     return accessible_documents
 
 def gpt3_completion(prompt, engine='text-davinci-003', temp=0.0, top_p=1.0, tokens=400, freq_pen=0.0, pres_pen=0.0, stop=['USER:', 'ASSISTANT:']):
