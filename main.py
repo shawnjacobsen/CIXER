@@ -1,9 +1,17 @@
 import os
+import io
 import re
 import json
+import requests
 import datetime
 from uuid import uuid4
 from time import time,sleep
+
+# document chunk management
+import pdfplumber
+from shareplum import Site
+from shareplum import Office365
+from langchain.text_splitter import CharacterTextSplitter
 
 import openai
 import pinecone
@@ -45,8 +53,68 @@ def gpt3_embedding(content, engine='text-embedding-ada-002'):
     vector = response['data'][0]['embedding']  # this is a normal list
     return vector
 
+def get_sharepoint_document(sharepoint_file_url, sharepoint_authcookie, document_index):
+    
+    # get PDF file from sharepoint
+    response = requests.get(sharepoint_file_url, cookie=sharepoint_authcookie)
+    pdf_content = response.content
 
-def gpt3_completion(prompt, engine='text-davinci-003', temp=0.0, top_p=1.0, tokens=400, freq_pen=0.0, pres_pen=0.0, stop=['USER:', 'CIXER:']):
+    # Read the PDF and extract text
+    pdf_stream = io.BytesIO(pdf_content)
+    
+    full_file_text = ""
+    with pdfplumber.open(pdf_stream) as pdf:
+        for page in pdf.pages:
+            full_file_text += page.extract_text()
+
+    # get corresponding document chunk by its index
+    text_splitter = CharacterTextSplitter(separator = "\n", chunk_size = 1000, chunk_overlap  = 200, length_function = len)
+    chunks = text_splitter.split_text(full_file_text)
+    if (document_index < len(chunks) - 1):
+        document_index = len(chunks) - 1
+    document = chunks[document_index]
+    return document
+
+def user_has_access_to_file(auth_token, user_email, sharepoint_file_location):
+    headers = {'Authorization': f'Bearer {auth_token}'}
+    file_url = f'https://graph.microsoft.com/v1.0/sites/root/drive/root:/{sharepoint_file_location}:/permissions'
+    response = requests.get(file_url, headers=headers)
+    permissions = response.json().get('value', [])
+
+    for permission in permissions:
+        if permission.get('grantedTo', {}).get('user', {}).get('email') == user_email and permission.get('roles'):
+            return True
+    return False
+
+def retrieve_accessible_documents(vdb, userId:str, k=6, threshold=2, max_tries=3):
+    """_summary_
+
+    Args:
+        vdb (Pinecone DB): Pinecone Object used to query pinecone for vectors
+        userId (str): sharepoint user id to check if user has access to some given Sharepoint document
+        k (int, optional): number of semantically similar documents to poll for at a time. Defaults to 6.
+        threshold (int, optional): min number of documents to return. Defaults to 2.
+        max_tries (int, optional): number of repolls to reach threshold. Defaults to 3.
+
+    Returns:
+        list(str): list of similar documents
+    """
+
+    # query response { 'matches': [{'id','score','values', 'metadata':{ 'sharepoint_file_id', 'document_index' }}] }
+    res = vdb.query(vector=vector, top_k=k, include_metadata=True)
+    matches = res['matches']
+    
+    # list(str) of similar documents that the user has access to
+    accessible_documents = []
+    # WIP
+    for match in matches:
+        doc_contents = ""
+        if user_has_access_to_file():
+            accessible_documents.append(doc_contents)
+    
+    return accessible_documents
+
+def gpt3_completion(prompt, engine='text-davinci-003', temp=0.0, top_p=1.0, tokens=400, freq_pen=0.0, pres_pen=0.0, stop=['USER:', 'ASSISTANT:']):
     max_retry = 5
     retry = 0
     prompt = prompt.encode(encoding='ASCII',errors='ignore').decode()
@@ -60,7 +128,8 @@ def gpt3_completion(prompt, engine='text-davinci-003', temp=0.0, top_p=1.0, toke
                 top_p=top_p,
                 frequency_penalty=freq_pen,
                 presence_penalty=pres_pen,
-                stop=stop)
+                stop=stop
+            )
             text = response['choices'][0]['text'].strip()
             text = re.sub('[\r\n]+', '\n', text)
             text = re.sub('[\t ]+', ' ', text)
@@ -69,13 +138,12 @@ def gpt3_completion(prompt, engine='text-davinci-003', temp=0.0, top_p=1.0, toke
                 os.makedirs('gpt3_logs')
             save_file('gpt3_logs/%s' % filename, prompt + '\n\n==========\n\n' + text)
             return text
-        except Exception as oops:
+        except Exception as error:
             retry += 1
             if retry >= max_retry:
-                return "GPT3 error: %s" % oops
-            print('Error communicating with OpenAI:', oops)
+                return "GPT3 error: %s" % error
+            print('Error communicating with OpenAI:', error)
             sleep(1)
-
 
 def load_conversation(results):
     result = list()
