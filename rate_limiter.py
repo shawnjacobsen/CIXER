@@ -1,19 +1,72 @@
 import time
+import random
 
-class ApiLimiter:
-    def __init__(self, rpm, cpm):
-        self.requests_per_minute = rpm
-        self.chars_per_minute = cpm
+class Api:
+    """
+    Class to manage API requests, ensuring that requests are sent at a 
+    rate no higher than the average rate limit, with exponential back-off 
+    strategy for retries when API requests fail.
+    """
+    def __init__(self, average_rate_limit, max_retries=5):
+        """
+        Initializes the Api object.
+        :param average_rate_limit: Average number of requests allowed per second.
+        """
+        self.average_rate_limit = average_rate_limit
+        self.last_request_time = 0
+        self.max_retries = max_retries
+        # The current backoff factor
+        self.retry_backoff = 1
 
-    def send_request(self, text):
-        time.sleep(self.get_delay(len(text)))
-        api_send_request(text)
+    def send_request(self, function, *args, retry_count=0, **kwargs):
+        """
+        Sends a request to the API (function). If the request fails, retry using an 
+        exponential back-off strategy.
 
-    # Calculates the delay required to maintain the rate limit
-    def get_delay(self, text_length, buffer=0.1):
-        optimal = 60.0 / min(self.requests_per_minute, self.chars_per_minute / text_length)
-        return optimal * (1 + buffer)
+        :param function: The function that sends a request to the API.
+        :param args: The positional arguments for the function.
+        :param max_retries: maximum number of retries in a row. Defaults to 5
+        :param kwargs: The keyword arguments for the function.
+        :return: The result of the function call.
+        """
+        now = time.time()
+        delay = max(1 / self.average_rate_limit - (now - self.last_request_time), 0)
+        time.sleep(delay)
+
+        try:
+            result = function(*args, **kwargs)
+            # Reset last request time and backoff on successful request
+            self.last_request_time = now + delay
+            self.retry_backoff = 1
+            return result
+        except Exception as e:
+            if retry_count < self.max_retries:
+                # print(f"Request failed with error {e}. Retrying in {self.retry_backoff} seconds...")
+                time.sleep(self.retry_backoff)
+                # Double the backoff time for the next attempt
+                self.retry_backoff *= 2
+                return self.send_request(function, *args, retry_count=retry_count + 1, **kwargs)
+            else:
+                raise Exception(f"Request failed after {self.max_retries} (max) attempts:\n{e}.")
+                
 
 
-def api_send_request(text):
-    print("Sent Request", text)
+# # Usage
+
+# api = Api(average_rate_limit=10, max_retries=5)  # Average of 10 requests per second, maximum of 5 retries
+
+# def some_api_function(arg1, arg2):
+#     """
+#     Dummy API function that sometimes fails.
+    
+#     :param arg1: The first argument.
+#     :param arg2: The second argument.
+#     :return: The sum of the two arguments.
+#     """
+#     # Simulating an API function that sometimes fails
+#     if random.random() < 0.1:  # 10% failure rate
+#         raise Exception("Random API failure")
+#     return arg1 + arg2
+
+# for i in range(200):
+#     print(api.send_request(some_api_function, i, i))
