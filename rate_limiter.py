@@ -1,5 +1,5 @@
 import time
-import random
+import sys
 
 class Api:
     """
@@ -10,7 +10,7 @@ class Api:
     def __init__(self, average_rate_limit, max_retries=5):
         """
         Initializes the Api object.
-        :param average_rate_limit: Average number of requests allowed per second.
+        :param average_rate_limit: Average number of requests allowed per minute.
         """
         self.average_rate_limit = average_rate_limit
         self.last_request_time = 0
@@ -30,7 +30,7 @@ class Api:
         :return: The result of the function call.
         """
         now = time.time()
-        delay = max(1 / self.average_rate_limit - (now - self.last_request_time), 0)
+        delay = max(60 / self.average_rate_limit - (now - self.last_request_time), 0)
         time.sleep(delay)
 
         try:
@@ -48,8 +48,61 @@ class Api:
                 return self.send_request(function, *args, retry_count=retry_count + 1, **kwargs)
             else:
                 raise Exception(f"Request failed after {self.max_retries} (max) attempts:\n{e}.")
-                
+            
+    def send_payload(self, function, payload, payload_length_limit=100):
+        """
+        Sends a payload (list) to a specified API function, splitting the payload into chunks if its length exceeds 
+        the defined payload length limit. Each chunk is sent separately via send_request method.
 
+        :param function: The function that sends a request to the API.
+        :param payload: The list of vectors/data to be sent as a payload.
+        :param args: The positional arguments for the function.
+        :param kwargs: The keyword arguments for the function.
+        :return: A list of results from each chunked API request.
+        """
+        results = []
+
+        for i in range(0, len(payload), payload_length_limit):
+            chunk = payload[i:i+payload_length_limit]
+            result = self.send_request(function, chunk)
+            results.append(result)
+        
+        return results    
+
+def size_of_payload(payload):
+    """
+    Computes the size in bytes of a payload where each item in the payload is a tuple containing:
+    1) a string id, 
+    2) a vector of 1500 floats, and 
+    3) metadata which is an object containing 3 additional strings.
+
+    Assumptions:
+    - Each character in a string is 1 byte.
+    - Each float is 8 bytes.
+    - The ID is a string of 1 to 256 characters.
+
+    :param payload: A list of tuples where each tuple contains a string id, a list of floats, and a dict of metadata.
+    :type payload: List[Tuple[str, List[float], Dict[str, str]]]
+    :return: The total size in bytes of the payload.
+    :rtype: int
+    """
+    total_size = 0
+
+    for item in payload:
+        id, vector, metadata = item
+        
+        # size of id - assuming each character is 1 byte
+        id_size = sys.getsizeof(id)
+        
+        # size of vector - assuming each float is 8 bytes
+        vector_size = len(vector) * 8
+
+        # size of metadata - sum of sizes of all strings in metadata
+        metadata_size = sum(sys.getsizeof(s) for s in metadata.values())
+
+        total_size += id_size + vector_size + metadata_size
+
+    return total_size
 
 # # Usage
 
