@@ -1,5 +1,4 @@
 import os
-import io
 import re
 import json
 import requests
@@ -7,15 +6,11 @@ import datetime
 from uuid import uuid4
 from time import time,sleep
 
-# document chunk management
-import pdfplumber
-from shareplum import Site
-from shareplum import Office365
-from langchain.text_splitter import CharacterTextSplitter
-
 import openai
 import pinecone
 from dotenv import load_dotenv
+
+from document_helpers import get_access_token, get_sharepoint_document, user_has_access_to_file
 
 # load environment variables
 load_dotenv()
@@ -35,73 +30,23 @@ def open_file(filepath):
     with open(filepath, 'r', encoding='utf-8') as infile:
         return infile.read()
 
-
 def save_file(filepath, content):
     with open(filepath, 'w', encoding='utf-8') as outfile:
         outfile.write(content)
-
 
 def load_json(filepath):
     with open(filepath, 'r', encoding='utf-8') as infile:
         return json.load(infile)
 
-
 def save_json(filepath, payload):
     with open(filepath, 'w', encoding='utf-8') as outfile:
         json.dump(payload, outfile, ensure_ascii=False, sort_keys=True, indent=2)
-
 
 def gpt3_embedding(content, engine='text-embedding-ada-002'):
     content = content.encode(encoding='ASCII',errors='ignore').decode()  # fix any UNICODE errors
     response = openai.Embedding.create(input=content,engine=engine)
     vector = response['data'][0]['embedding']  # this is a normal list
     return vector
-
-def get_access_token(client_id, client_secret, tenant_id):
-    token_url = f'https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token'
-    token_payload = {
-        'grant_type': 'client_credentials',
-        'client_id': client_id,
-        'client_secret': client_secret,
-        'scope': 'https://graph.microsoft.com/.default'
-    }
-    response = requests.post(token_url, data=token_payload)
-    access_token = response.json().get('access_token')
-    return access_token
-
-def get_sharepoint_document(auth_token, sharepoint_file_url, document_index):
-    
-    # get PDF file from sharepoint
-    headers = {'Authorization': f'Bearer {auth_token}'}
-    response = requests.get(sharepoint_file_url, headers=headers)
-    pdf_content = response.content
-
-    # Read the PDF and extract text
-    pdf_stream = io.BytesIO(pdf_content)
-    
-    full_file_text = ""
-    with pdfplumber.open(pdf_stream) as pdf:
-        for page in pdf.pages:
-            full_file_text += page.extract_text()
-
-    # get corresponding document chunk by its index
-    text_splitter = CharacterTextSplitter(separator = "\n", chunk_size = 1000, chunk_overlap  = 200, length_function = len)
-    chunks = text_splitter.split_text(full_file_text)
-    if (document_index > len(chunks) - 1):
-        document_index = len(chunks) - 1
-    document = chunks[document_index]
-    return document
-
-def user_has_access_to_file(auth_token, user_email, sharepoint_file_location):
-    headers = {'Authorization': f'Bearer {auth_token}'}
-    file_url = f'https://graph.microsoft.com/v1.0/sites/root/drive/root:/{sharepoint_file_location}:/permissions'
-    response = requests.get(file_url, headers=headers)
-    permissions = response.json().get('value', [])
-
-    for permission in permissions:
-        if permission.get('grantedTo', {}).get('user', {}).get('email') == user_email and permission.get('roles'):
-            return True
-    return False
 
 def retrieve_accessible_similar_information(vdb, sharepoint_auth_token, user_email:str, vector, k=6, threshold=2, max_tries=3, info_separator=" -- "):
     """_summary_
@@ -128,8 +73,8 @@ def retrieve_accessible_similar_information(vdb, sharepoint_auth_token, user_ema
     while (len(accessible_documents) < threshold and tries < max_tries):
         # for current try, retrieve k + number of previously queried vectors to get new vectors
         num_vectors_to_retrieve = k + len(previously_queried_vectors)
-        # query response { 'matches': [{'id','score','values', 'metadata':{ 'sharepoint_file_loc', 'document_index' }}] }
-        res = vdb.query(vector=vector, top_k=k, include_metadata=True, exclude=previously_queried_vectors)
+        # query response { 'matches': [{'id','score','values', 'metadata':{ 'document_id', 'file_location', 'chunk_index' }}] }
+        res = vdb.query(vector=vector, top_k=num_vectors_to_retrieve, include_metadata=True, exclude=previously_queried_vectors)
         matches = res['matches']
         ids = [match['id'] for match in matches]
         previously_queried_vectors += ids
@@ -139,11 +84,11 @@ def retrieve_accessible_similar_information(vdb, sharepoint_auth_token, user_ema
         
         # append document content if the user has access
         for match in matches:
-            if user_has_access_to_file(sharepoint_auth_token, user_email, match['metadata']['sharepoint_file_loc']):
+            if user_has_access_to_file(sharepoint_auth_token, user_email, match['metadata']['file_location']):
                 doc_contents = get_sharepoint_document(
                     sharepoint_auth_token,
-                    match['metadata']['sharepoint_file_loc'],
-                    match['metadata']['document_index']
+                    match['metadata']['file_location'],
+                    match['metadata']['chunk_index']
                     )
                 accessible_documents += doc_contents + info_separator
         
@@ -183,15 +128,6 @@ def gpt3_completion(prompt, engine='text-davinci-003', temp=0.0, top_p=1.0, toke
             print('Error communicating with OpenAI:', error)
             sleep(1)
 
-def load_conversation(results):
-    result = list()
-    for m in results['matches']:
-        info = load_json(f"conversations/{m['id']}.json")
-        result.append(info)
-    ordered = sorted(result, key=lambda d: d['time'], reverse=False)  # sort them all chronologically
-    messages = [i['message'] for i in ordered]
-    return '\n'.join(messages).strip()
-
 if __name__ == '__main__':
     openai.api_key = key_openai
     pinecone.init(api_key=key_pinecone, environment=env_pinecone)
@@ -208,7 +144,6 @@ if __name__ == '__main__':
         # get user input message and create vector representation for similarity search
         message = input('\n\nUSER: ')
         vector_message = gpt3_embedding(message)
-
 
         # generate user metadata for logging
         timestamp = time()
