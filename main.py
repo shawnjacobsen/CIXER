@@ -19,10 +19,15 @@ from dotenv import load_dotenv
 
 # load environment variables
 load_dotenv()
+bot_name = os.getenv("bot_name")
 key_openai = os.getenv("key_openai")
 key_pinecone = os.getenv("key_pinecone")
 env_pinecone = os.getenv("env_pinecone")
 idx_pinecone = os.getenv("idx_pinecone")
+client_secret_AD = os.getenv("client_secret_AD")
+app_id_AD = os.getenv("app_id_AD")
+directory_id_AD = os.getenv("directory_id_AD")
+tenant_id_AD = os.getenv("tenant_id_AD")
 
 def timestamp_to_datetime(unix_time):
     return datetime.datetime.fromtimestamp(unix_time).strftime("%A, %B %d, %Y at %I:%M%p %Z")
@@ -99,24 +104,25 @@ def user_has_access_to_file(auth_token, user_email, sharepoint_file_location):
             return True
     return False
 
-def retrieve_accessible_documents(vdb, sharepoint_auth_token, user_email:str, k=6, threshold=2, max_tries=3):
+def retrieve_accessible_similar_information(vdb, sharepoint_auth_token, user_email:str, vector, k=6, threshold=2, max_tries=3, info_separator=" -- "):
     """_summary_
 
     Args:
         vdb (Pinecone DB): Pinecone Object used to query pinecone for vectors
         sharepoint_auth_token (str): returned auth token from login.microsoftonline.com
         user_email (str): sharepoint user email to check if user has access to some given Sharepoint document
+        vector: the vector to search for similar vectors of in the vector database
         k (int, optional): number of semantically similar documents to poll for at a time. Defaults to 6.
         threshold (int, optional): min number of documents to return. Defaults to 2.
         max_tries (int, optional): number of repolls to reach threshold. Defaults to 3.
 
     Returns:
-        list(str): list of similar documents
+        accessible_documents (str): concatentated list of similar documents content
     """
 
     # list(str) of similar documents that the user has access to
     previously_queried_vectors = []
-    accessible_documents = []
+    accessible_documents = ""
     tries = 0
 
     # continue to query until meeting threshold or maximum tries are met
@@ -140,7 +146,7 @@ def retrieve_accessible_documents(vdb, sharepoint_auth_token, user_email:str, k=
                     match['metadata']['sharepoint_file_loc'],
                     match['metadata']['document_index']
                     )
-                accessible_documents.append(doc_contents)
+                accessible_documents += doc_contents + info_separator
         
         # increment number of tries
         tries += 1
@@ -188,53 +194,54 @@ def load_conversation(results):
     return '\n'.join(messages).strip()
 
 if __name__ == '__main__':
-    print("test")
-    convo_length = 30
     openai.api_key = key_openai
     pinecone.init(api_key=key_pinecone, environment=env_pinecone)
     vdb = pinecone.Index(idx_pinecone)
+    auth_token = get_access_token(app_id_AD,client_secret_AD,tenant_id_AD)
+    user_email = input('Enter Sharepoint Email: ')
     while True:
-
-        # payload containing vectors to be sent to Pinecone
-        payload = list()
-
         ##### USER PROMPT #####
 
-        # vectorize user input and append to payload
-        uuid_user = str(uuid4())
+        # get user input message and create vector representation for similarity search
         message = input('\n\nUSER: ')
-        vector = gpt3_embedding(message)
-        payload.append((uuid_user, vector))
+        vector_message = gpt3_embedding(message)
 
-        # generate metadata for logging
+
+        # generate user metadata for logging
         timestamp = time()
         timestring = timestamp_to_datetime(timestamp)
-        metadata_user = {'speaker': 'USER', 'time': timestamp, 'message': message, 'timestring': timestring, 'uuid': uuid_user}
+        metadata_user = {'email': user_email, 'speaker': 'USER', 'timestring': timestring}
 
-        # save user metadata
-        save_json(f"conversations/{uuid_user}.json", metadata_user)
-    
+
         ##### BOT RESPONSE #####
 
-        # search for relevant messages, and generate a response
-        results = vdb.query(vector=vector, top_k=convo_length)
-        conversation = load_conversation(results)  # results should be a DICT with 'matches' which is a LIST of DICTS, with 'id'
-        prompt = open_file('prompt.txt').replace('<<CONVERSATION>>', conversation).replace('<<MESSAGE>>', message)
+        # get previous q/a for context
+        conversation = ""
+
+        # search for relevant documents, and generate a response
+        similar_information = retrieve_accessible_similar_information(vdb,auth_token,user_email,vector_message)
         
-        # generate response, vectorize, save to pinecone, print response
-        uuid_bot = str(uuid4())
+        # construct prompt
+        prompt = open_file('prompt.txt')
+        prompt = prompt.replace('<<CONVERSATION>>', conversation).replace('<<MESSAGE>>', message).replace('<<INFO>>',similar_information)
+        
+        # generate & print response
         response = gpt3_completion(prompt)
-        vector = gpt3_embedding(response)
-        payload.append((uuid_bot, vector))
-        print(f"\n\nCIXER: {response}")
+        print(f"\n\{bot_name}: {response}")
 
-        # generate metadata for logging
-        timestamp = time()
-        timestring = timestamp_to_datetime(timestamp)
-        metadata_bot = {'speaker': 'CIXER', 'time': timestamp, 'message': response, 'timestring': timestring, 'uuid': uuid_bot}
+        # generate bot metadata for logging
+        timestamp_bot = time()
+        timestring_bot = timestamp_to_datetime(timestamp)
+        metadata_bot = {'speaker': 'BOT', 'message': response, 'timestring': timestring_bot}
 
-        # save bot metadata
-        save_json(f"conversations/{uuid_bot}.json", metadata_bot)
 
-        ##### save payload to pincecone #####
-        vdb.upsert(payload)
+        ##### LOG Q/A WITH METADATA #####
+        log_id = str(uuid4())
+        qa_log = {
+            'id':log_id,
+            'user_message': message,
+            'bot_response': response,
+            'user_data': metadata_user,
+            'bot_data': metadata_bot,
+        }
+        save_json(f"conversations/{log_id}.json", qa_log)
