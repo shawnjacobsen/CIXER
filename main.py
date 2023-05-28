@@ -19,7 +19,6 @@ from dotenv import load_dotenv
 
 # load environment variables
 load_dotenv()
-bot_name = os.getenv("bot_name")
 key_openai = os.getenv("key_openai")
 key_pinecone = os.getenv("key_pinecone")
 env_pinecone = os.getenv("env_pinecone")
@@ -199,6 +198,10 @@ if __name__ == '__main__':
     vdb = pinecone.Index(idx_pinecone)
     auth_token = get_access_token(app_id_AD,client_secret_AD,tenant_id_AD)
     user_email = input('Enter Sharepoint Email: ')
+    previous_qa = {
+        'user_message':"",
+        'bot_response':""
+    }
     while True:
         ##### USER PROMPT #####
 
@@ -215,25 +218,28 @@ if __name__ == '__main__':
 
         ##### BOT RESPONSE #####
 
-        # get previous q/a for context
-        conversation = ""
-
         # search for relevant documents, and generate a response
         similar_information = retrieve_accessible_similar_information(vdb,auth_token,user_email,vector_message)
         
         # construct prompt
         prompt = open_file('prompt.txt')
-        prompt = prompt.replace('<<CONVERSATION>>', conversation).replace('<<MESSAGE>>', message).replace('<<INFO>>',similar_information)
+        prompt = prompt.replace("<<USER CONTEXT>>", previous_qa['user_message'])
+        prompt = prompt.replace("<<BOT CONTEXT>>", previous_qa['bot_response'])
+        prompt = prompt.replace('<<MESSAGE>>', message).replace('<<INFO>>',similar_information)
         
         # generate & print response
         response = gpt3_completion(prompt)
-        print(f"\n\{bot_name}: {response}")
+        print(f"\n\nchairGPT: {response}")
 
         # generate bot metadata for logging
         timestamp_bot = time()
         timestring_bot = timestamp_to_datetime(timestamp)
         metadata_bot = {'speaker': 'BOT', 'message': response, 'timestring': timestring_bot}
 
+
+        ##### TRACK PREVIOUS Q/A FOR CONTEXT IN THE NEXT Q/A #####
+        previous_qa['user_response'] = message
+        previous_qa['bot_response'] = response
 
         ##### LOG Q/A WITH METADATA #####
         log_id = str(uuid4())
