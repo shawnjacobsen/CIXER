@@ -1,43 +1,93 @@
+import os
+import time
+import webbrowser
 from flask import Flask, request, redirect
+import threading
 import requests
 import urllib
 
+from dotenv import load_dotenv
+# load environment variables
+load_dotenv()
+client_secret_AD = os.getenv("client_secret_AD")
+secret_id_AD = os.getenv('secret_id_AD')
+app_id_AD = os.getenv("app_id_AD")
+tenant_id_AD = os.getenv("tenant_id_AD")
+
 app = Flask(__name__)
+app.secret_key = os.getenv('flask_secret')
+access_token = None
 
 @app.route('/')
 def home():
-    # Step 1: Redirect the user to the Microsoft OAuth2.0 endpoint
-    params = {
-        'client_id': 'YOUR_APP_CLIENT_ID',  # Replace with your app's client ID
-        'response_type': 'code',
-        'redirect_uri': 'http://localhost:5000/callback',  # Replace with your app's redirect URI
-        'scope': 'Files.Read.All offline_access'  # The permissions your app needs
-    }
-    url = 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize?' + urllib.parse.urlencode(params)
-    return redirect(url)
+  # Redirect the user to the Microsoft OAuth2.0 endpoint
+  params = {
+    'client_id': app_id_AD,
+    'response_type': 'code',
+    'redirect_uri': 'http://localhost:5000/callback',
+    'scope': 'Files.Read.All offline_access'  # The permissions your app needs
+  }
+  url = f'https://login.microsoftonline.com/{tenant_id_AD}/oauth2/v2.0/authorize?' + urllib.parse.urlencode(params)
+  return redirect(url)
 
 @app.route('/callback')
 def callback():
-    # Step 2: The user is redirected here by Microsoft with an authorization code
-    code = request.args.get('code')
-    
-    # Step 3: Exchange the authorization code for an access token
-    data = {
-        'client_id': 'YOUR_APP_CLIENT_ID',  # Replace with your app's client ID
-        'client_secret': 'YOUR_APP_CLIENT_SECRET',  # Replace with your app's client secret
-        'code': code,
-        'grant_type': 'authorization_code',
-        'redirect_uri': 'http://localhost:5000/callback'  # Replace with your app's redirect URI
-    }
-    response = requests.post('https://login.microsoftonline.com/common/oauth2/v2.0/token', data=data)
+  # The user is redirected here by Microsoft with an authorization code
+  code = request.args.get('code')
+  
+  # Exchange the authorization code for an access token
+  data = {
+    'client_id': app_id_AD,
+    'client_secret': client_secret_AD,
+    'code': code,
+    'grant_type': 'authorization_code',
+    'redirect_uri': 'http://localhost:5000/callback',
+    'scope': 'Files.Read.All offline_access'  # The permissions your app needs
+  }
+  response = requests.post(f'https://login.microsoftonline.com/{tenant_id_AD}/oauth2/v2.0/token', data=data)
 
-    if response.status_code == 200:
-        # Save the access token in the session
-        access_token = response.json()['access_token']
-        session['access_token'] = access_token
-        return "Success! Your access token is: " + access_token
+  response_json = response.json()
+
+  # Check the response for error information
+  if 'error' in response_json:
+    error = response_json['error']
+    error_description = response_json.get('error_description', '')
+
+    if 'expired' in error_description:
+      # If the token has expired, redirect to the home page
+      return redirect('/')
     else:
-        return "Error: " + response.text
+      # If the token is invalid for some other reason, return an error message
+      return f"Invalid token: {error}. {error_description}"
 
-if __name__ == '__main__':
-    app.run()
+  elif response.status_code == 200:
+    # We now have an access token!
+    global access_token
+    access_token = response_json['access_token']
+
+    # Here you could store the access token in a file or environment variable, or pass it to another function.
+    # For now, we'll just print it out.
+    print(f"Access token: {access_token}")
+
+    # Return a response to the user
+    return "Login successful! You can now close this page."
+
+  else:
+      return f"Error: {response.text}"
+
+
+# Run the app in a separate thread
+def run_app():
+  app.run()
+
+threading.Thread(target=run_app).start()
+
+# Open a web browser to the home page of our app
+webbrowser.open('http://localhost:5000')
+
+# Wait for user to authenticate
+while access_token is None:
+  time.sleep(1)
+
+# start Q/A session after athenticating
+print("Welcome to ChairGPT")
