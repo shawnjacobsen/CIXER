@@ -6,6 +6,8 @@ import threading
 import requests
 import urllib
 
+from document_helpers import get_onedrive_file_names
+
 from dotenv import load_dotenv
 # load environment variables
 load_dotenv()
@@ -65,10 +67,6 @@ def callback():
     global access_token
     access_token = response_json['access_token']
 
-    # Here you could store the access token in a file or environment variable, or pass it to another function.
-    # For now, we'll just print it out.
-    print(f"Access token: {access_token}")
-
     # Return a response to the user
     return "Login successful! You can now close this page."
 
@@ -90,4 +88,6 @@ while access_token is None:
   time.sleep(1)
 
 # start Q/A session after athenticating
-print("Welcome to ChairGPT")
+print(f"Welcome to ChairGPT (Access Token: {access_token[:5]})")
+print("Your files:")
+print(get_onedrive_file_names())
