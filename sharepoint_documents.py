@@ -6,7 +6,7 @@ from langchain.text_splitter import CharacterTextSplitter
 from helpers import send_auth_request
 
 
-def get_document_chunks(content:str):
+def get_content_chunks(content:str):
   """
   Returns a semantically separated list of text chunks given a single string of text content
   :param content (str): a single text string to be separated using a semantic text splitter
@@ -80,12 +80,26 @@ def get_sharepoint_chunk(auth_token, file_path, document_index):
   full_file_text = get_sharepoint_document(auth_token, file_path)
 
   # get corresponding document chunk by the specified index
-  chunks = get_document_chunks(full_file_text)
+  chunks = get_content_chunks(full_file_text)
 
   if (document_index >= len(chunks)):
       document_index = len(chunks) - 1
   chunk = chunks[document_index]
   return chunk
+
+def get_user_email_by_token(auth_token:str):
+  """
+  Request the associated email with the provided Microsoft Graph API Access Token
+  :param auth_token (str): Sharepoint Auth Token
+  :return user_email or error code (str)
+  """
+  response = send_msgraph_request(auth_token, 'me')
+  if response.status_code == 200:
+    user_data = response.json()
+    return user_data['mail']
+  else:
+    return f"Failed to get user email. Error {response.status_code}"
+
 
 def user_has_access_to_file(auth_token, user_email, file_path):
   """
