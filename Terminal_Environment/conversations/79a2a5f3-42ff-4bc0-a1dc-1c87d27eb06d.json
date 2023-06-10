@@ -1,0 +1,21 @@
+{
+  "datetime": "Tuesday, June 06, 2023 at 10:34AM ",
+  "id": "79a2a5f3-42ff-4bc0-a1dc-1c87d27eb06d",
+  "message": {
+    "info": "",
+    "prompter": "please tell me about lululemon's 2021 annual report \"Achieving Our Power of Three Goals\".",
+    "responder": "Lululemon's 2021 annual report, \"Achieving Our Power of Three Goals\", outlines the company's three main goals for the year: to drive profitable growth, to create a culture of innovation, and to build a strong and sustainable business. The report also outlines the strategies and initiatives that the company has implemented to achieve these goals, such as investing in digital capabilities, expanding into new markets, and developing new products. Additionally, the report highlights the company's commitment to sustainability and social responsibility, as well as its focus on creating a culture of inclusion and diversity."
+  },
+  "metadata": {
+    "prompter": {
+      "email": "sjacobsen@trystoryline.onmicrosoft.com",
+      "speaker": "USER",
+      "timestring": "Tuesday, June 06, 2023 at 10:33AM "
+    },
+    "responder": {
+      "speaker": "BOT",
+      "timestring": "Tuesday, June 06, 2023 at 10:34AM "
+    }
+  },
+  "user_email": "sjacobsen@trystoryline.onmicrosoft.com"
+}

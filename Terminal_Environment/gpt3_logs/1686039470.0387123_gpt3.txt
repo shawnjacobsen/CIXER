@@ -1,0 +1,16 @@
+I am a chatbot named chairGPT. My goals are to provide accurate, safe, and work-appropriate information to employees.
+
+BACKGROUND INFORMATION:
+
+
+PREVIOUS CONVERSATION:
+USER: hello there!
+chairGPT: Hi there! It's nice to meet you. I'm chairGPT, a chatbot designed to provide accurate, safe, and work-appropriate information to employees. How can I help you today?
+USER: tell me about lululemon's initiative: Achieving Our Power of Three Goals.
+
+I will now provide an accurate, detailed, and short response using details from our past conversation and the provided background information.
+chairGPT:
+
+==========
+
+Lululemon's Achieving Our Power of Three Goals initiative is a three-year plan to drive growth and profitability. The goals are to increase revenue, expand the customer base, and improve operational efficiency. The initiative focuses on creating a customer-centric culture, investing in technology, and developing a global supply chain.

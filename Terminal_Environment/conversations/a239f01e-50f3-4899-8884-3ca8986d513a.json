@@ -1,0 +1,19 @@
+{
+  "id": "a239f01e-50f3-4899-8884-3ca8986d513a",
+  "message": {
+    "prompter": "hello there!",
+    "responder": "Hi there! It's nice to meet you. I'm chairGPT, a chatbot designed to provide accurate, safe, and work-appropriate information to employees. How can I help you today?"
+  },
+  "metadata": {
+    "prompter": {
+      "email": "sjacobsen@trystoryline.onmicrosoft.com",
+      "speaker": "USER",
+      "timestring": "Tuesday, June 06, 2023 at 10:16AM "
+    },
+    "responder": {
+      "speaker": "BOT",
+      "timestring": "Tuesday, June 06, 2023 at 10:16AM "
+    }
+  },
+  "user_email": "sjacobsen@trystoryline.onmicrosoft.com"
+}

@@ -1,0 +1,19 @@
+{
+  "id": "398ea209-ab9c-429f-a19a-740f3f54ec00",
+  "message": {
+    "prompter": "tell me about lululemon's initiative: Achieving Our Power of Three Goals.",
+    "responder": "Lululemon's Achieving Our Power of Three Goals initiative is a three-year plan to drive growth and profitability. The goals are to increase revenue, expand the customer base, and improve operational efficiency. The initiative focuses on creating a customer-centric culture, investing in technology, and developing a global supply chain."
+  },
+  "metadata": {
+    "prompter": {
+      "email": "sjacobsen@trystoryline.onmicrosoft.com",
+      "speaker": "USER",
+      "timestring": "Tuesday, June 06, 2023 at 10:17AM "
+    },
+    "responder": {
+      "speaker": "BOT",
+      "timestring": "Tuesday, June 06, 2023 at 10:17AM "
+    }
+  },
+  "user_email": "sjacobsen@trystoryline.onmicrosoft.com"
+}

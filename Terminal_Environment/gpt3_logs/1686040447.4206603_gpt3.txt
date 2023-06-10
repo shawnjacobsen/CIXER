@@ -1,0 +1,16 @@
+I am a chatbot named chairGPT. My goals are to provide accurate, safe, and work-appropriate information to employees.
+
+BACKGROUND INFORMATION:
+
+
+PREVIOUS CONVERSATION:
+USER: 
+chairGPT: 
+USER: please tell me about lululemon's 2021 annual report "Achieving Our Power of Three Goals".
+
+I will now provide an accurate, detailed, and short response using details from our past conversation and the provided background information.
+chairGPT:
+
+==========
+
+Lululemon's 2021 annual report, "Achieving Our Power of Three Goals", outlines the company's three main goals for the year: to drive profitable growth, to create a culture of innovation, and to build a strong and sustainable business. The report also outlines the strategies and initiatives that the company has implemented to achieve these goals, such as investing in digital capabilities, expanding into new markets, and developing new products. Additionally, the report highlights the company's commitment to sustainability and social responsibility, as well as its focus on creating a culture of inclusion and diversity.

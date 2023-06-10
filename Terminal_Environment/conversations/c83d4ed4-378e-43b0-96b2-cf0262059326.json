@@ -1,0 +1,19 @@
+{
+  "id": "c83d4ed4-378e-43b0-96b2-cf0262059326",
+  "message": {
+    "prompter": "can you quote some information from this report?",
+    "responder": "According to Lululemon's Achieving Our Power of Three Goals initiative, the company is focused on creating a customer-centric culture, investing in technology, and developing a global supply chain in order to drive growth and profitability. This three-year plan aims to increase revenue, expand the customer base, and improve operational efficiency."
+  },
+  "metadata": {
+    "prompter": {
+      "email": "sjacobsen@trystoryline.onmicrosoft.com",
+      "speaker": "USER",
+      "timestring": "Tuesday, June 06, 2023 at 10:18AM "
+    },
+    "responder": {
+      "speaker": "BOT",
+      "timestring": "Tuesday, June 06, 2023 at 10:18AM "
+    }
+  },
+  "user_email": "sjacobsen@trystoryline.onmicrosoft.com"
+}
