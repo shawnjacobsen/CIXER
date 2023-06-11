@@ -1,2 +1,4 @@
 terminal/venv
 terminal/.env
+frontend/.env
+frontend/node_modules
