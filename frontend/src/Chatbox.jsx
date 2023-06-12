@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { Button, Form, Card, ListGroup, Container, Row, Col } from 'react-bootstrap';
+import { Button, Form, Card, ListGroup, Container, Row, Col, Navbar } from 'react-bootstrap';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faCommentDots } from '@fortawesome/free-solid-svg-icons';
 
 const BOT_RESPONSES = [
 	'Hello there!',
@@ -43,7 +45,7 @@ const ChatBox = () => {
 
 		// Randomly pick 2 or 3 links from BOT_LINKS.
 		const randomLinks = [];
-		for (let i = 0; i < Math.floor(Math.random() * 2 + 2); i++) {
+		for (let i = 0; i < Math.floor(Math.random() * 4); i++) {
 			randomLinks.push(BOT_LINKS[Math.floor(Math.random() * BOT_LINKS.length)]);
 		}
 
@@ -59,12 +61,17 @@ const ChatBox = () => {
 
 	return (
 		<Container className="app-container">
+      <Navbar expand="lg" variant="dark" className="app-navbar">
+        <Navbar.Brand href="#">
+          <FontAwesomeIcon icon={faCommentDots} /> ChairGPT
+        </Navbar.Brand>
+      </Navbar>
 			<div className="messages-container">
 				{messages.map((message, index) => (
           <div className={"card " + (message.user === 'User' ? 'user-card' : 'bot-card')}>
             <Row key={index}>
-              <Col xs={1}>
-                <strong>{message.user === 'User' ? 'U:' : 'B:'}</strong>
+              <Col xs={2}>
+                <strong>{message.user === 'User' ? 'User:' : 'ChairGPT:'}</strong>
               </Col>
               <Col xs={10}>
                 <div className="message-field">
@@ -73,7 +80,7 @@ const ChatBox = () => {
                   </div>
                   <div className='message-links'>
                     {message.links.map((link, i) => (
-                      <ListGroup.Item key={i}><a href={link[1]}>{link[0]}</a></ListGroup.Item>
+                      <span className='chat-link'><a  key={i} href={link[1]}>{link[0]}</a></span>
                     ))}
                   </div>
                 </div>

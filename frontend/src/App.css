@@ -38,6 +38,13 @@
   margin-right: 10px;
 }
 
+.message-links {
+  text-align: left;
+}
+.chat-link {
+  margin-right: 8px;
+}
+
 .card {
   color: white !important;
   padding: 20px;

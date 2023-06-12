@@ -25,7 +25,6 @@ def retrieve_accessible_similar_information(vdb, sharepoint_auth_token, user_ema
     Return Sharepoint documents similar to some vector which are accessible to the specified user 
     :param vdb (Pinecone DB): Pinecone Object used to query pinecone for vectors
     :param sharepoint_auth_token (str): returned auth token from login.microsoftonline.com
-    :param user_email (str): sharepoint user email to check if user has access to some given Sharepoint document
     :param vector: the vector to search for similar vectors of in the vector database
     :param k (int, optional): number of semantically similar documents to poll for at a time. Defaults to 6.
     :param threshold (int, optional): min number of documents to return. Defaults to 2.
@@ -74,7 +73,7 @@ def retrieve_accessible_similar_information(vdb, sharepoint_auth_token, user_ema
 
     return accessible_documents
 
-def gpt3_completion(prompt, engine='text-davinci-003', temp=0.0, top_p=1.0, tokens=400, freq_pen=0.0, pres_pen=0.0, stop=['USER:', 'ASSISTANT:']):
+def gpt3_completion(prompt, engine='text-davinci-003', temp=0.0, top_p=1.0, tokens=400, freq_pen=0.0, pres_pen=0.0, stop=['USER:', 'BOT:']):
     max_retry = 5
     retry = 0
     prompt = prompt.encode(encoding='ASCII',errors='ignore').decode()

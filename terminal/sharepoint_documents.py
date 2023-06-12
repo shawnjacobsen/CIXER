@@ -112,7 +112,6 @@ def user_has_access_to_file(auth_token, document_id):
   """
   Check if user has access to some file
   :param auth_token (str): Sharepoint Auth Token
-  :param user_email (str): user email to check
   :param document_id (str): id of file in sharepoint
   :return True if user has access else False or error (str)
   """
@@ -127,8 +126,8 @@ def user_has_access_to_file(auth_token, document_id):
     return "Error determining file access"
 
 def get_onedrive_file_names(auth_token):
-  """ Retrieves onedrive files for root acces given access token
-
+  """
+  Retrieves onedrive files for root acces given access token
   :param auth_token (str): Microsoft Graph API Access token
   :return file_names & ids (list(str,str) or str): returns list of file names and location or error message
   """
