@@ -2,3 +2,4 @@ terminal/venv
 terminal/.env
 frontend/.env
 frontend/node_modules
+frontend/.env.development

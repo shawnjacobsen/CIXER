@@ -1,7 +1,18 @@
 // handle any bot related behavior including Q/A and embedding
+import { Configuration, OpenAIApi } from 'openai'
 import { getSharepointChunk, userHasAccessToFile } from './sharepoint'
+import { cleanStringToAscii, sleep } from './helpers'
 
-export function gptEmbedding(content, engine='text-embedding-ada-002'):Array<number> {
+
+export function getOpenAIApiObject():OpenAIApi {
+  const configuration = new Configuration({
+    apiKey: process.env.REACT_APP_KEY_OPENAI,
+  });
+  const openai = new OpenAIApi(configuration)
+  return openai
+}
+
+export function gptEmbedding(OpenAI:OpenAIApi, content:string, engine='text-embedding-ada-002'):Array<number> {
   return []
 }
 
@@ -65,8 +76,9 @@ export function retrieveAccessibleSimilarInformation(
 
 /**
  * Get answer to some generic text prompt via OpenAI's GPT models
+ * @param openai OpenAI object 
  * @param prompt Entire text prompt to be provided to model
- * @param engine specified OpenAI model to use
+ * @param model specified OpenAI model to use
  * @param temp model temp
  * @param top_p model parameter
  * @param tokens max tokens in response
@@ -75,25 +87,36 @@ export function retrieveAccessibleSimilarInformation(
  * @param stop 
  * @return model's response to the prompt
  */
-export function gptCompletion(
+export async function gptCompletion(
+  openai:OpenAIApi,
   prompt:string,
-  engine:string='',
+  model:string='gpt-3.5-turbo',
   temp=0.0,
   top_p=1.0,
   tokens=400,
   freq_pen=0.0,
   pres_pen=0.0,
-  stop=['USER:', 'ASSISTANT:']):string {
+  stop=['USER:', 'ASSISTANT:']):Promise<string> {
 
   const maxRetry = 5
   let retry = 0
   // fix any possible ascii issues
-  const prompt = prompt.encode(encoding='ASCII',errors='ignore').decode()
+  prompt = cleanStringToAscii(prompt)
+
 
   while (true) {
     try {
-      const response:any = openai.Completion.create( engine, prompt, temp, tokens, top_p, freq_pen, pres_pen, stop)
-      let text = response['choices'][0]['text']
+      const response:any = await openai.createCompletion({
+        model:model,
+        prompt: prompt,
+        temperature: temp,
+        max_tokens: tokens,
+        top_p: top_p,
+        frequency_penalty: freq_pen,
+        presence_penalty: pres_pen,
+        stop: stop
+      })
+      let text = response.data.choices[0].text
       text.replace('\r\n','\n')
       text.replace('\t','  ')
       return text
@@ -103,7 +126,7 @@ export function gptCompletion(
       if (retry > maxRetry) {
         return "Sorry, I am unable to respond to that right now. Please try again later."
       }
-      sleep(1)
+      sleep(1000)
     }
   }
 }
@@ -117,15 +140,15 @@ export function gptCompletion(
  * @param promptTemplate text file location of prompt template
  * @return constructed prompt
  */
-export function construct_prompt(
+export async function construct_prompt(
   previousPrompterMsg:string,
   previousResponderMsg:string,
   currPrompterMsg:string,
   contextInfo:string,
-  promptTemplate:string='prompt.txt'
-):string {
-  // TODO: open text file? or import instead
-  let prompt:string = open(promptTemplate)
+  promptTemplate:string='/prompt.txt'
+):Promise<string> {
+  const response = await fetch(promptTemplate)
+  let prompt = await response.text()
   prompt = prompt.replace("<<USER CONTEXT>>", previousPrompterMsg)
   prompt = prompt.replace("<<BOT CONTEXT>>", previousResponderMsg)
   prompt = prompt.replace("<<MESSAGE>>", currPrompterMsg)

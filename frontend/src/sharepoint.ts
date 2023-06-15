@@ -1,24 +1,38 @@
 // Microsoft Graph & Sharepoint functions
-import { getContentChunks } from './helpers'
+import { getContentChunks, authFetch } from './helpers'
+import { AccessTokenResponse } from 'react-aad-msal';
+import { AzureAD, AuthenticationState } from 'react-aad-msal';
+import { MsalAuthProvider, LoginType } from 'react-aad-msal';
+
 
 /**
- * Queries Sharepoint JWT
+ * Queries Sharepoint MSAL AuthProvider
  * @param clientId Found in Active Directory
- * @param clientSecret Found in Active Directory
  * @param tenant_id Found in Active Directory
  * @returns JWT bearer for future requests on behalf of client
  */
-export function getAccessToken(clientId:string, clientSecret:string, tenant_id:string):string {
-  const token_url = `https://login.microsoftonline.com/${tenant_id}/oauth2/v2.0/token`
-  const tokenPayload = {
-    'grant_type': 'client_credentials',
-    'client_id': clientId,
-    'client_secret': clientSecret,
-    'scope': 'https://graph.microsoft.com/.default'
-  }
-  const response = requests.post(token_url, data=tokenPayload)
-  const access_token = response.json().get('access_token')
-  return access_token
+export async function getAuthProvider(clientId:string, tenant_id:string):Promise<MsalAuthProvider> {
+  // Config
+  const config = {
+    auth: {
+      authority: `https://login.microsoftonline.com/${tenant_id}`,
+      clientId: clientId,
+    },
+  };
+
+  // Authentication Parameters
+  const authenticationParameters = {
+    scopes: ['user.read', 'Files.Read'],
+  };
+
+  // Options
+  const options = {
+    loginType: LoginType.Redirect,
+    tokenRefreshUri: window.location.origin + '/auth.html',
+  };
+
+  const authProvider:MsalAuthProvider = new MsalAuthProvider(config, authenticationParameters, options);
+  return authProvider
 }
 
 /**
@@ -29,10 +43,9 @@ export function getAccessToken(clientId:string, clientSecret:string, tenant_id:s
  * @param dataPayload optional payload to pass in request data parameter
  * @return response
  */
-export function sendMSGraphRequest(authToken:string, path:string, method:string, dataPayload={}) {
+export async function sendMSGraphRequest(authToken:string, path:string, method:string, dataPayload={}):Promise<any> {
   const request_url = `https://graph.microsoft.com/v1.0/${path}`
-  // TODO: Send auth query
-  return sendAuthRequest(authToken,request_url, method, dataPayload)
+  return await authFetch(request_url, authToken, method, dataPayload)
 }
 
 /**
@@ -40,30 +53,28 @@ export function sendMSGraphRequest(authToken:string, path:string, method:string,
  * @param authToken Sharepoint Auth Token
  * @param document_id id of file in sharepoint
  */
-export function getSharepointDocument(authToken:string, document_id:string):string {
-  //get PDF file from sharepoint
-  const sharepoint_file_endpoint = `me/drive/items/${document_id}/content`
-  const response = sendMSGraphRequest(authToken, sharepoint_file_endpoint, "GET")
-  // TODO: trasnform PDF from OneDrive to text string
-  if (response.status_code == 200) {
-    if ('application/pdf' in response.headers.get('Content-Type', '')) {
-      console.log("is PDF\n")
-      const pdf_content = BytesIO(response.content)
-      try {
-        const text:string = extract_text(pdf_content)
-        return text
-      } catch(e) {
-        console.log("Error while extracting text:", e)
-      }
-    } else {
-      console.log(`The downloaded content is not a PDF: type=${response.headers.get('Content-Type', '')}`)
-    }
-  } else {
-    console.log(`Error downloading file: ${response.text}`)
-  }
-  return ""
-}
+export async function getSharepointDocument(authToken:string, document_id:string):Promise<string> {
+  try {
+    // Query the Microsoft Graph API to get the DriveItem
+    const driveItemResponse = await sendMSGraphRequest(authToken, `me/drive/items/${document_id}`, 'GET');
 
+    // Check if the DriveItem is a file
+    if (driveItemResponse.file) {
+      // If the DriveItem is a file, we can get its content
+      const contentResponse = await sendMSGraphRequest(authToken, `me/drive/items/${document_id}/content`, 'GET');
+
+      // Assume contentResponse is Blob, convert it to text
+      const contentText = await contentResponse.text();
+
+      return contentText;
+    } else {
+      throw new Error('The specified DriveItem is not a file');
+    }
+  } catch (error) {
+    console.error(error);
+    throw error;
+  }
+}
 
 /**
  * Get document chunk (piece) from Sharepoint file
@@ -72,12 +83,12 @@ export function getSharepointDocument(authToken:string, document_id:string):stri
  * @param chunkIndex index of chunk in document. document_index > len(<document chunks>) => document_index = len(<document chunks>) - 1
  * @returns specific indicated chunk as a string of text
  */
-export function getSharepointChunk(authToken:string, document_id:string, chunkIndex:number):string {
+export async function getSharepointChunk(authToken:string, document_id:string, chunkIndex:number):Promise<string> {
   // get entire document content
-  const full_file_text = getSharepointDocument(authToken, document_id)
+  const full_file_text = await getSharepointDocument(authToken, document_id)
 
   // split into normal chunks using standard method
-  const chunks = getContentChunks(full_file_text)
+  const chunks = await getContentChunks(full_file_text)
   if (chunkIndex >= chunks.length) chunkIndex = chunks.length - 1
 
   return chunks[chunkIndex]
@@ -88,10 +99,11 @@ export function getSharepointChunk(authToken:string, document_id:string, chunkIn
  * @param authToken Sharepoint Auth Token
  * @return user email or error code
  */
-export function getUserEmailByToken(authToken:string):string {
+export async function getUserEmailByToken(authToken:string):Promise<string> {
   try {
-    const response = sendMSGraphRequest(authToken,'me', 'GET')
-    return response.json()['mail']
+    const response = await sendMSGraphRequest(authToken,'me', 'GET')
+    const email:string = response.json()['mail']
+    return email
   } catch(e) {
     return `ERROR: Failed to get user email.\n${e}`
   }
@@ -105,17 +117,18 @@ export function getUserEmailByToken(authToken:string):string {
  */
 export function userHasAccessToFile(authToken:string, documentId:string):boolean|string {
   const permissionEndpoint = `me/drive/items/${documentId}`
-  try {
-    const response = sendMSGraphRequest(authToken, permissionEndpoint, "GET")
-    // TODO response code management
-    if response.code === 200 {
-      return true 
-    } else if (response.code === 404){
-      return false
-    } else {
-      throw Error(response)
-    }
-  } catch(e) {
-    return `ERROR: cannot determine file access.\n${e}`
-  }
+  // try {
+  //   const response = sendMSGraphRequest(authToken, permissionEndpoint, "GET")
+  //   // TODO response code management
+  //   if response.code === 200 {
+  //     return true 
+  //   } else if (response.code === 404){
+  //     return false
+  //   } else {
+  //     throw Error(response)
+  //   }
+  // } catch(e) {
+  //   return `ERROR: cannot determine file access.\n${e}`
+  // }
+  return true
 }

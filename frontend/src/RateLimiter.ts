@@ -1,4 +1,5 @@
 // Rate Limiting and API Management
+import { sleep } from './helpers'
 
 class SendRequest {
   averageRateLimit: number  // Average number of requests allowed per minute.
@@ -37,7 +38,7 @@ class SendRequest {
       return response
     } catch(e) {
       if (retryCount < this.maxRetries) {
-        sleep(this.retryBackoff)
+        sleep(this.retryBackoff * 1000)
 
         // double backoff time for the next attempt
         this.retryBackoff *= 2

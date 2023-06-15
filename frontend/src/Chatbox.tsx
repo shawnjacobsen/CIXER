@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button, Form, Card, ListGroup, Container, Row, Col, Navbar } from 'react-bootstrap';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCommentDots } from '@fortawesome/free-solid-svg-icons';
@@ -30,9 +30,10 @@ const BOT_LINKS = [
 ];
 
 const ChatBox = () => {
-	const [messages, setMessages] = useState([]);
+	const [messages, setMessages] = useState<any>([]);
 	const [input, setInput] = useState('');
 
+	/** MESSAGE HANDLING */
 	const handleSubmit = (event) => {
 		event.preventDefault();
 
