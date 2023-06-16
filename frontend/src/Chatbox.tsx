@@ -44,11 +44,8 @@ const ChatBox = () => {
 		};
 		setMessages([...messages, userMessage]);
 
-		// Randomly pick 2 or 3 links from BOT_LINKS.
-		const randomLinks = [];
-		for (let i = 0; i < Math.floor(Math.random() * 4); i++) {
-			randomLinks.push(BOT_LINKS[Math.floor(Math.random() * BOT_LINKS.length)]);
-		}
+		// TODO
+		const response, links = getInformedResponse()
 
 		const botMessage = {
 			text: BOT_RESPONSES[Math.floor(Math.random() * BOT_RESPONSES.length)],
