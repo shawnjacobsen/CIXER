@@ -15,7 +15,7 @@ def gpt3_embedding(content, engine='text-embedding-ada-002'):
     :param engine (str): OpenAI embedding model to use
     :return vector (list(float))
     """
-    content = content.encode(encoding='ASCII',errors='ignore').decode()  # fix any UNICODE errors
+    content = content.replace(/[^\x00-\x7F]/g, "")
     response = openai.Embedding.create(input=content,engine=engine)
     vector = response['data'][0]['embedding']  # this is a normal list
     return vector

@@ -1,23 +1,46 @@
 /** Class to manage pinecone requests */
+import { RequestHandler } from "./RateLimiter"
 
+interface Match {
+  id:string
+  score?:any
+  values?:any
+  metadata?:{
+    document_id:string
+    chunk_index:number
+    [x: string | number | symbol]: unknown
+  }
+  [x: string | number | symbol]: unknown;
+}
 
-class Pinecone {
+export class Pinecone {
   baseUrl:string
   apiKey:string
+  request:RequestHandler
   constructor(indexName:string, projectId:string, environment:string, apiKey:string) {
     this.baseUrl = `https://${indexName}-${projectId}.svc.${environment}.pinecone.io`
     this.apiKey = apiKey
+    this.request = new RequestHandler(1000, 3)
   }
 
   public getBaseUrl() { return this.baseUrl }
   public getApiKey() { return this.apiKey }
 
-  public async queryVectors(vector:Array<Number>,
+  /**
+   * queries similar vectors from Pinecone given some vector
+   * @param vector the vector to compare against
+   * @param topK the number of top similar vectors to return
+   * @param includeValues include the vector values
+   * @param includeMetadata include additional vector metadata
+   * @param filter Pinecone filters
+   * @returns the list of matches [{'id','score','values', 'metadata':{ 'document_id', 'chunk_index' }}]
+   */
+  public async queryVectors(vector:Array<number>,
     topK:number,
-    filter?:{[key: string]: any},
     includeValues:boolean=false,
     includeMetadata:boolean=false,
-    ):Promise<Array<any>> {
+    filter?:{[key: string]: any},
+    ):Promise<Array<Match>> {
       const headers = {
         'Api-Key':this.getApiKey(),
         'accept:': 'application/json',
@@ -30,9 +53,9 @@ class Pinecone {
         'includeValues':includeValues,
         'includeMetadata':includeMetadata
       }
-
       if (filter) { data['filter'] = filter }
-      const response:Response = await fetch(this.getBaseUrl(),{
+
+      const response:Response = await this.request.sendRequest(this.getBaseUrl(),{
         method: 'POST',
         headers: headers,
         body: JSON.stringify(data)
@@ -42,6 +65,6 @@ class Pinecone {
       return results['matches']
   }
 
-  public upsert(vector:Array<Number>) {}
+  public upsert(vector:Array<number>) {}
 
 }

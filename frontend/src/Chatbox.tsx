@@ -1,43 +1,27 @@
-import React, { useState, useEffect } from 'react';
-import { Button, Form, Card, ListGroup, Container, Row, Col, Navbar } from 'react-bootstrap';
+import React, { useState } from 'react';
+import { Button, Form, Container, Row, Col, Navbar } from 'react-bootstrap';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCommentDots } from '@fortawesome/free-solid-svg-icons';
 
-const BOT_RESPONSES = [
-	'Hello there!',
-	'How can I assist you?',
-	'Nice to meet you.',
-	"Let's talk about something.",
-	"What's your favorite book?",
-	'Tell me more.',
-	"That's interesting!",
-	"I'm glad to hear that.",
-	'Could you elaborate?',
-	'Have a great day!'
-];
-
-const BOT_LINKS = [
-  ['Link 1',  'https://www.google.com'],
-  ['Link 2',  'https://www.google.com'], 
-  ['Link 3',  'https://www.google.com'], 
-  ['Link 4',  'https://www.google.com'], 
-  ['Link 5',  'https://www.google.com'], 
-  ['Link 6',  'https://www.google.com'], 
-  ['Link 7',  'https://www.google.com'], 
-  ['Link 8',  'https://www.google.com'], 
-  ['Link 9',  'https://www.google.com'], 
-  ['Link 10', 'https://www.google.com']
-];
+interface Link {
+	name:string
+	href:string
+}
+interface Message {
+	text:string
+	user: "User" | "Bot"
+	links: Array<Link>
+}
 
 const ChatBox = () => {
-	const [messages, setMessages] = useState<any>([]);
+	const [messages, setMessages] = useState<Array<Message>>([]);
 	const [input, setInput] = useState('');
 
 	/** MESSAGE HANDLING */
 	const handleSubmit = (event) => {
 		event.preventDefault();
 
-		const userMessage = {
+		const userMessage:Message = {
 			text: input,
 			user: 'User',
 			links: []
@@ -45,12 +29,12 @@ const ChatBox = () => {
 		setMessages([...messages, userMessage]);
 
 		// TODO
-		const response, links = getInformedResponse()
+		// const response, links = getInformedResponse()
 
-		const botMessage = {
-			text: BOT_RESPONSES[Math.floor(Math.random() * BOT_RESPONSES.length)],
+		const botMessage:Message = {
+			text: "",
 			user: 'Bot',
-			links: randomLinks
+			links: []
 		};
 		setMessages((prev) => [...prev, botMessage]);
 

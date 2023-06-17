@@ -1,5 +1,6 @@
 // handle any bot related behavior including Q/A and embedding
 import { Configuration, OpenAIApi } from 'openai'
+import { Pinecone } from './pinecone'
 import { getSharepointChunk, userHasAccessToFile } from './sharepoint'
 import { cleanStringToAscii, sleep } from './helpers'
 
@@ -10,6 +11,15 @@ export function getOpenAIApiObject():OpenAIApi {
   });
   const openai = new OpenAIApi(configuration)
   return openai
+}
+
+export function getPineconeApiObject():Pinecone {
+  return new Pinecone(
+    process.env.REACT_APP_IDX_PINECONE,
+    process.env.REACT_APP_PROJECT_ID_PINECONE,
+    process.env.REACT_APP_ENV_PINECONE,
+    process.env.REACT_APP_KEY_PINECONE
+  )
 }
 
 export function gptEmbedding(OpenAI:OpenAIApi, content:string, engine='text-embedding-ada-002'):Array<number> {
@@ -28,15 +38,15 @@ export function gptEmbedding(OpenAI:OpenAIApi, content:string, engine='text-embe
  * @param infoSeparator text separator indicator used when joininig all gathered information
  * @returns concatentated list of similar documents content
  */
-export function retrieveAccessibleSimilarInformation(
-  vdb:any,
+export async function retrieveAccessibleSimilarInformation(
+  vdb:Pinecone,
   accessTokenAD:string,
   vector:Array<number>,
   k:number=2,
   threshold:number=2,
   maxTries:number=3,
   infoSeparator:string=" -- "
-):string {
+):Promise<string> {
 
   let preivouslyQueriedVectors = []
   let numAccessibleDocuments = 0
@@ -46,10 +56,9 @@ export function retrieveAccessibleSimilarInformation(
   while (numAccessibleDocuments < threshold && tries < maxTries) {
     // for current try, retrieve k + number of previously queried vectors to get new vectors
     const numVectorsToRetrieve = k + preivouslyQueriedVectors.length
+
     // query response { 'matches': [{'id','score','values', 'metadata':{ 'document_id', 'chunk_index' }}] }
-    // TODO: format vdb query according to pinecone js sdk
-    const response = vdb.query(vector=vector, numVectorsToRetrieve, true, preivouslyQueriedVectors)
-    let matches = response['matches']
+    let matches = await vdb.queryVectors(vector, numVectorsToRetrieve, false, true)
     const ids = matches.map(match => match['id'])
 
     // filter out elements in matches whose id is in preivouslyQueriedVectors
