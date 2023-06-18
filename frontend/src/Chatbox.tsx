@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
+import { OpenAIApi } from 'openai'
+import { Pinecone } from './pinecone'
 import { Button, Form, Container, Row, Col, Navbar } from 'react-bootstrap';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCommentDots } from '@fortawesome/free-solid-svg-icons';
-
-interface Link {
+import { Bot } from './bot';
+export interface Link {
 	name:string
 	href:string
 }
-interface Message {
+export interface Message {
 	text:string
 	user: "User" | "Bot"
 	links: Array<Link>
@@ -15,10 +17,11 @@ interface Message {
 
 const ChatBox = () => {
 	const [messages, setMessages] = useState<Array<Message>>([]);
+	const [bot] = useState<Bot>(new Bot())
 	const [input, setInput] = useState('');
 
 	/** MESSAGE HANDLING */
-	const handleSubmit = (event) => {
+	const handleSubmit = async (event) => {
 		event.preventDefault();
 
 		const userMessage:Message = {
@@ -28,14 +31,7 @@ const ChatBox = () => {
 		};
 		setMessages([...messages, userMessage]);
 
-		// TODO
-		// const response, links = getInformedResponse()
-
-		const botMessage:Message = {
-			text: "",
-			user: 'Bot',
-			links: []
-		};
+		const botMessage:Message = await bot.getResponse(userMessage, "")
 		setMessages((prev) => [...prev, botMessage]);
 
 		setInput('');

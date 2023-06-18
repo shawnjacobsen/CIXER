@@ -3,7 +3,7 @@ import { getContentChunks, authFetch } from './helpers'
 import { AccessTokenResponse } from 'react-aad-msal';
 import { AzureAD, AuthenticationState } from 'react-aad-msal';
 import { MsalAuthProvider, LoginType } from 'react-aad-msal';
-
+import { Link } from './Chatbox'
 
 /**
  * Queries Sharepoint MSAL AuthProvider
@@ -36,6 +36,36 @@ export async function getAuthProvider(clientId:string, tenant_id:string):Promise
 }
 
 /**
+ * Queries Sharepoint MSAL AuthProvider
+ * @param clientId Found in Active Directory
+ * @param tenant_id Found in Active Directory
+ * @returns JWT bearer for future requests on behalf of client
+ */
+export async function getAccessToken(clientId:string, tenant_id:string):Promise<string> {
+  // Config
+  const config = {
+    auth: {
+      authority: `https://login.microsoftonline.com/${tenant_id}`,
+      clientId: clientId,
+    },
+  };
+
+  // Authentication Parameters
+  const authenticationParameters = {
+    scopes: ['user.read', 'Files.Read'],
+  };
+
+  // Options
+  const options = {
+    loginType: LoginType.Redirect,
+    tokenRefreshUri: window.location.origin + '/auth.html',
+  };
+
+  const authProvider:MsalAuthProvider = new MsalAuthProvider(config, authenticationParameters, options);
+  return (await authProvider.getAccessToken()).accessToken
+}
+
+/**
  *Query Microsoft Graph API (https://graph.microsoft.com/v1.0/) and return the reponse
  * @param authToken Sharepoint Authentication Token
  * @param path Microsoft Graph API endpoint path (i.e. "me/drive/root/children")
@@ -45,7 +75,8 @@ export async function getAuthProvider(clientId:string, tenant_id:string):Promise
  */
 export async function sendMSGraphRequest(authToken:string, path:string, method:string, dataPayload={}):Promise<any> {
   const request_url = `https://graph.microsoft.com/v1.0/${path}`
-  return await authFetch(request_url, authToken, method, dataPayload)
+  const res = await authFetch(request_url, authToken, method, dataPayload)
+  return await res.json()
 }
 
 /**
@@ -76,6 +107,18 @@ export async function getSharepointDocument(authToken:string, document_id:string
   }
 }
 
+export async function getSharepointDocumentLink(authToken:string, documentId:string):Promise<Link> {
+  let link:Link = {name:"",href:""}
+  try {
+    const body = await sendMSGraphRequest(authToken, `me/drive/${documentId}`,'GET')
+    link['name'] = body.name
+    link['href']  = body.webUrl
+  } catch (error) {
+    throw new Error(`Unable to get sharepoint link and name\n${error}`)
+  }
+  return link
+}
+
 /**
  * Get document chunk (piece) from Sharepoint file
  * @param authToken Sharepoint Auth Token
@@ -101,8 +144,8 @@ export async function getSharepointChunk(authToken:string, document_id:string, c
  */
 export async function getUserEmailByToken(authToken:string):Promise<string> {
   try {
-    const response = await sendMSGraphRequest(authToken,'me', 'GET')
-    const email:string = response.json()['mail']
+    const body = await sendMSGraphRequest(authToken,'me', 'GET')
+    const email:string = body['mail']
     return email
   } catch(e) {
     return `ERROR: Failed to get user email.\n${e}`
@@ -115,7 +158,7 @@ export async function getUserEmailByToken(authToken:string):Promise<string> {
  * @param documentId  id of file in sharepoint 
  * @return !!(user has access) or Error
  */
-export function userHasAccessToFile(authToken:string, documentId:string):boolean|string {
+export async function userHasAccessToFile(authToken:string, documentId:string):Promise<boolean> {
   const permissionEndpoint = `me/drive/items/${documentId}`
   // try {
   //   const response = sendMSGraphRequest(authToken, permissionEndpoint, "GET")

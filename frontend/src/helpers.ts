@@ -1,7 +1,7 @@
 // generic helper functions
 import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
 
-export async function authFetch(endpoint:string, token:string, method:string='GET', body?:any):Promise<any> {
+export async function authFetch(endpoint:string, token:string, method:string='GET', body?:any):Promise<Response> {
   const headers = {
     Authorization: `Bearer ${token}`,
     'Content-Type': 'application/json',
@@ -19,10 +19,10 @@ export async function authFetch(endpoint:string, token:string, method:string='GE
     throw new Error(`Request failed with status ${response.status}`);
   }
 
-  return response.json();
+  return response;
 }
 
-export function get_datetime() {
+export function getDatetime() {
   const now = new Date()
   return now.toDateString()
 }
