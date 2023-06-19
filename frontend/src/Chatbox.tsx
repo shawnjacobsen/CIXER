@@ -1,9 +1,7 @@
-import React, { useState } from 'react';
-import { OpenAIApi } from 'openai'
-import { Pinecone } from './pinecone'
+import React, { useState, useEffect } from 'react';
 import { Button, Form, Container, Row, Col, Navbar } from 'react-bootstrap';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCommentDots } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faCommentDots } from '@fortawesome/free-solid-svg-icons'
 import { Bot } from './bot';
 export interface Link {
 	name:string
@@ -15,7 +13,7 @@ export interface Message {
 	links: Array<Link>
 }
 
-const ChatBox = () => {
+const ChatBox:React.FC<{authToken:string}> = ({authToken}) => {
 	const [messages, setMessages] = useState<Array<Message>>([]);
 	const [bot] = useState<Bot>(new Bot())
 	const [input, setInput] = useState('');
@@ -31,7 +29,7 @@ const ChatBox = () => {
 		};
 		setMessages([...messages, userMessage]);
 
-		const botMessage:Message = await bot.getResponse(userMessage, "")
+		const botMessage:Message = await bot.getResponse(userMessage, authToken)
 		setMessages((prev) => [...prev, botMessage]);
 
 		setInput('');
@@ -46,8 +44,8 @@ const ChatBox = () => {
       </Navbar>
 			<div className="messages-container">
 				{messages.map((message, index) => (
-          <div className={"card " + (message.user === 'User' ? 'user-card' : 'bot-card')}>
-            <Row key={index}>
+          <div key={index} className={"card " + (message.user === 'User' ? 'user-card' : 'bot-card')}>
+            <Row>
               <Col xs={2}>
                 <strong>{message.user === 'User' ? 'User:' : 'ChairGPT:'}</strong>
               </Col>

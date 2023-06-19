@@ -1,19 +1,28 @@
 // generic helper functions
 import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
 
+export async function crossOriginFetch(url:string, args:RequestInit) {
+  const requestArgs:RequestInit = {
+    method: 'POST',
+    headers: {'content-type': 'application/json'},
+    body: JSON.stringify({url, ...args})
+  };
+  const response = await fetch("http://localhost:5000/api/cross", requestArgs)
+  return response
+}
 export async function authFetch(endpoint:string, token:string, method:string='GET', body?:any):Promise<Response> {
   const headers = {
-    Authorization: `Bearer ${token}`,
+    'Authorization': `Bearer ${token}`,
     'Content-Type': 'application/json',
   };
 
-  const requestOptions: RequestInit = {
+  const args:RequestInit = {
     method,
     headers,
-    body: body ? JSON.stringify(body) : undefined,
-  };
+    body: body ? JSON.stringify(body) : undefined
+  }
 
-  const response = await fetch(endpoint, requestOptions);
+  const response = await crossOriginFetch(endpoint, args);
 
   if (!response.ok) {
     throw new Error(`Request failed with status ${response.status}`);

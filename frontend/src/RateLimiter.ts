@@ -1,5 +1,6 @@
 // Rate Limiting and API Management
 import { sleep } from './helpers'
+import { crossOriginFetch } from './helpers'
 
 export class RequestHandler {
   averageRateLimit: number  // Average number of requests allowed per minute.
@@ -32,7 +33,7 @@ export class RequestHandler {
 
     try {
       // attempt to fetch data
-      const response = await fetch(url, args)
+      const response = await crossOriginFetch(url, args)
       this.lastRequestTime = now + (delay * 600)
       this.retryBackoff = 1
       return response
@@ -42,7 +43,7 @@ export class RequestHandler {
 
         // double backoff time for the next attempt
         this.retryBackoff *= 2
-        return this.sendRequest(url, args, retryCount + 1)
+        return await this.sendRequest(url, args, retryCount + 1)
       } else {
         throw new Error(`Request failed after ${this.maxRetries} (max) attempts. Query Error:\n${e}.`);
       }

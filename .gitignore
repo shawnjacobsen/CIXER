@@ -1,5 +1,9 @@
+frontend/.env
+frontend/.env.development
+frontend/node_modules
+
+server/.env
+server/node_modules
+
 terminal/venv
 terminal/.env
-frontend/.env
-frontend/node_modules
-frontend/.env.development

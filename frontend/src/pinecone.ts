@@ -43,7 +43,7 @@ export class Pinecone {
     ):Promise<Array<Match>> {
       const headers = {
         'Api-Key':this.getApiKey(),
-        'accept:': 'application/json',
+        'Accept': 'application/json',
         'content-type': 'application/json'
       }
 
@@ -55,11 +55,14 @@ export class Pinecone {
       }
       if (filter) { data['filter'] = filter }
 
-      const response:Response = await this.request.sendRequest(this.getBaseUrl(),{
+      const url = this.getBaseUrl()
+      const response:Response = await this.request.sendRequest(url,{
         method: 'POST',
         headers: headers,
         body: JSON.stringify(data)
       })
+      console.log("RESPONSE:")
+      console.log(response)
       const results = await response.json()
 
       return results['matches']

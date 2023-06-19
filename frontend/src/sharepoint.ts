@@ -1,69 +1,43 @@
 // Microsoft Graph & Sharepoint functions
-import { getContentChunks, authFetch } from './helpers'
-import { AccessTokenResponse } from 'react-aad-msal';
-import { AzureAD, AuthenticationState } from 'react-aad-msal';
-import { MsalAuthProvider, LoginType } from 'react-aad-msal';
+import { getContentChunks, authFetch, crossOriginFetch } from './helpers'
 import { Link } from './Chatbox'
+import pdf from 'pdf-parse';
 
-/**
- * Queries Sharepoint MSAL AuthProvider
- * @param clientId Found in Active Directory
- * @param tenant_id Found in Active Directory
- * @returns JWT bearer for future requests on behalf of client
- */
-export async function getAuthProvider(clientId:string, tenant_id:string):Promise<MsalAuthProvider> {
-  // Config
-  const config = {
-    auth: {
-      authority: `https://login.microsoftonline.com/${tenant_id}`,
-      clientId: clientId,
-    },
+export const getAccessToken = async (code: string | null, setToken: React.Dispatch<React.SetStateAction<string | null>>) => {
+  const tokenURL: string = `https://login.microsoftonline.com/${process.env.REACT_APP_AD_TENANT_ID}/oauth2/v2.0/token`;
+
+  const details = {
+    client_id: process.env.REACT_APP_AD_APP_ID,
+    scope: 'Files.ReadWrite.All offline_access',
+    code: code,
+    redirect_uri: process.env.REACT_APP_REDIRECT_URL,
+    grant_type: 'authorization_code',
   };
 
-  // Authentication Parameters
-  const authenticationParameters = {
-    scopes: ['user.read', 'Files.Read'],
-  };
+  let formBody: string[] = [];
+  for (const property in details) {
+    const encodedKey: string = encodeURIComponent(property);
+    const encodedValue: string = encodeURIComponent(details[property]);
+    formBody.push(encodedKey + "=" + encodedValue);
+  }
 
-  // Options
-  const options = {
-    loginType: LoginType.Redirect,
-    tokenRefreshUri: window.location.origin + '/auth.html',
-  };
+  const formBodyString: string = formBody.join("&");  // New line, formBodyString will be a string now
 
-  const authProvider:MsalAuthProvider = new MsalAuthProvider(config, authenticationParameters, options);
-  return authProvider
-}
+  try {
+    const response: Response = await crossOriginFetch(tokenURL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
+      },
+      body: formBodyString  // Replace formBody with formBodyString
+    });
 
-/**
- * Queries Sharepoint MSAL AuthProvider
- * @param clientId Found in Active Directory
- * @param tenant_id Found in Active Directory
- * @returns JWT bearer for future requests on behalf of client
- */
-export async function getAccessToken(clientId:string, tenant_id:string):Promise<string> {
-  // Config
-  const config = {
-    auth: {
-      authority: `https://login.microsoftonline.com/${tenant_id}`,
-      clientId: clientId,
-    },
-  };
-
-  // Authentication Parameters
-  const authenticationParameters = {
-    scopes: ['user.read', 'Files.Read'],
-  };
-
-  // Options
-  const options = {
-    loginType: LoginType.Redirect,
-    tokenRefreshUri: window.location.origin + '/auth.html',
-  };
-
-  const authProvider:MsalAuthProvider = new MsalAuthProvider(config, authenticationParameters, options);
-  return (await authProvider.getAccessToken()).accessToken
-}
+    const data: {access_token: string} = await response.json();
+    setToken(data.access_token);
+  } catch (error) {
+    console.log('Error:', error);
+  }
+};
 
 /**
  *Query Microsoft Graph API (https://graph.microsoft.com/v1.0/) and return the reponse
@@ -76,31 +50,28 @@ export async function getAccessToken(clientId:string, tenant_id:string):Promise<
 export async function sendMSGraphRequest(authToken:string, path:string, method:string, dataPayload={}):Promise<any> {
   const request_url = `https://graph.microsoft.com/v1.0/${path}`
   const res = await authFetch(request_url, authToken, method, dataPayload)
-  return await res.json()
+  return res
 }
 
 /**
  * Get text content from Sharepoint file
  * @param authToken Sharepoint Auth Token
- * @param document_id id of file in sharepoint
+ * @param documentId id of file in sharepoint
  */
-export async function getSharepointDocument(authToken:string, document_id:string):Promise<string> {
+export async function getSharepointDocument(authToken:string, documentId:string):Promise<string> {
   try {
-    // Query the Microsoft Graph API to get the DriveItem
-    const driveItemResponse = await sendMSGraphRequest(authToken, `me/drive/items/${document_id}`, 'GET');
-
-    // Check if the DriveItem is a file
-    if (driveItemResponse.file) {
-      // If the DriveItem is a file, we can get its content
-      const contentResponse = await sendMSGraphRequest(authToken, `me/drive/items/${document_id}/content`, 'GET');
-
-      // Assume contentResponse is Blob, convert it to text
-      const contentText = await contentResponse.text();
-
-      return contentText;
-    } else {
-      throw new Error('The specified DriveItem is not a file');
+    // get document's text from server
+    const body = {
+      'authToken': authToken,
+      'documentId': documentId
     }
+    const url = `${process.env.REACT_APP_SERVER_URL}/api/sharepoint/getDocumentContent`
+    const res = await fetch(url, {
+      'method':'POST',
+      'headers': {'content-type': 'application/json'},
+      'body': JSON.stringify(body)
+    })
+    return await res.text();
   } catch (error) {
     console.error(error);
     throw error;
@@ -110,7 +81,8 @@ export async function getSharepointDocument(authToken:string, document_id:string
 export async function getSharepointDocumentLink(authToken:string, documentId:string):Promise<Link> {
   let link:Link = {name:"",href:""}
   try {
-    const body = await sendMSGraphRequest(authToken, `me/drive/${documentId}`,'GET')
+    const res = await sendMSGraphRequest(authToken, `me/drive/items/${documentId}`,'GET')
+    const body = await res.json()
     link['name'] = body.name
     link['href']  = body.webUrl
   } catch (error) {
@@ -129,7 +101,7 @@ export async function getSharepointDocumentLink(authToken:string, documentId:str
 export async function getSharepointChunk(authToken:string, document_id:string, chunkIndex:number):Promise<string> {
   // get entire document content
   const full_file_text = await getSharepointDocument(authToken, document_id)
-
+  console.log("recieved document text:",full_file_text.slice(0,200))
   // split into normal chunks using standard method
   const chunks = await getContentChunks(full_file_text)
   if (chunkIndex >= chunks.length) chunkIndex = chunks.length - 1
@@ -144,7 +116,8 @@ export async function getSharepointChunk(authToken:string, document_id:string, c
  */
 export async function getUserEmailByToken(authToken:string):Promise<string> {
   try {
-    const body = await sendMSGraphRequest(authToken,'me', 'GET')
+    const res = await sendMSGraphRequest(authToken,'me', 'GET')
+    const body = await res.json()
     const email:string = body['mail']
     return email
   } catch(e) {

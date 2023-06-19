@@ -1,17 +1,14 @@
 // handle any bot related behavior including Q/A and embedding
 import { Configuration, OpenAIApi } from 'openai'
-import { Pinecone } from './pinecone'
 import { getSharepointChunk, userHasAccessToFile, getSharepointDocumentLink } from './sharepoint'
 import { cleanStringToAscii, sleep, getDatetime } from './helpers'
 import { Link, Message } from './Chatbox'
 
 export class Bot {
   openai:OpenAIApi
-  vdb:Pinecone // pinecone DB to query for pinecone
   lastQuestionAnswer:{'prompter':string,'responder':string}
   constructor() {
     this.openai = this.getOpenAIApiObject()
-    this.vdb = this.getPineconeApiObject()
     this.lastQuestionAnswer = {'prompter':"",'responder':""}
   }
   public getOpenAIApiObject():OpenAIApi {
@@ -20,15 +17,6 @@ export class Bot {
     });
     const openai = new OpenAIApi(configuration)
     return openai
-  }
-
-  public getPineconeApiObject():Pinecone {
-    return new Pinecone(
-      process.env.REACT_APP_IDX_PINECONE,
-      process.env.REACT_APP_PROJECT_ID_PINECONE,
-      process.env.REACT_APP_ENV_PINECONE,
-      process.env.REACT_APP_KEY_PINECONE
-    )
   }
 
   public async gptEmbedding(content:string, model='text-embedding-ada-002'):Promise<Array<number>> {
@@ -59,7 +47,7 @@ export class Bot {
     infoSeparator:string=" -- "
   ):Promise<[Array<Link>, string]> {
 
-    let preivouslyQueriedVectors = []
+    let previouslyQueriedVectors = []
     let numAccessibleDocuments = 0
     let accessibleDocuments = ""
     let documentLinks:Array<Link> = []
@@ -67,17 +55,32 @@ export class Bot {
 
     while (numAccessibleDocuments < threshold && tries < maxTries) {
       // for current try, retrieve k + number of previously queried vectors to get new vectors
-      const numVectorsToRetrieve = k + preivouslyQueriedVectors.length
+      const numVectorsToRetrieve = k + previouslyQueriedVectors.length
 
       // get matches from vector
-      let matches = await this.vdb.queryVectors(vector, numVectorsToRetrieve, false, true)
+      const queryRequest = {
+        vector,
+        topK:numVectorsToRetrieve,
+        includeValues: false,
+        includeMetadata: true
+      }
+      const url = `${process.env.REACT_APP_SERVER_URL}/api/pinecone/query`
+      const res = await fetch(url, {
+        'method':'POST',
+        'headers': {'content-type': 'application/json'},
+        'body': JSON.stringify({'queryRequest':queryRequest})
+      })
+      const results = await res.json()
+      let matches = results.matches
       const ids = matches.map(match => match['id'])
+      console.log('matches',matches)
 
-      // filter out elements in matches whose id is in preivouslyQueriedVectors
-      matches = matches.filter(match => preivouslyQueriedVectors.some(id => id !== match['id']))
-
+      // filter out elements in matches whose id is in previouslyQueriedVectors
+      console.log("previouslyQueriedVectors",[...previouslyQueriedVectors])
+      matches = matches.filter(match => !previouslyQueriedVectors.includes(match['id']))
+      console.log("new matches:", [...matches].length)
       // if the user has access to the chunk's content, append it to the result
-      matches.forEach(async match => {
+      const promises = matches.map(async match => {
         const docId = match['metadata']['document_id']
         const chunkIndex = match['metadata']['chunk_index']
         const userHasAccess = await userHasAccessToFile(authToken, docId)
@@ -87,11 +90,15 @@ export class Bot {
           documentLinks.push(link)
           accessibleDocuments += docContents + infoSeparator
           numAccessibleDocuments += 1
+
+          console.log("doc id:",docId)
+          console.log("content:",docContents)
         }
       })
+      await Promise.all(promises)
       
       // increment number of tries and update previously queried vectors
-      preivouslyQueriedVectors.concat(ids)
+      previouslyQueriedVectors.concat(ids)
       tries += 1
     }
     return [documentLinks, accessibleDocuments]
@@ -112,7 +119,7 @@ export class Bot {
    */
   public async gptCompletion(
     prompt:string,
-    model:string='gpt-3.5-turbo',
+    model:string='text-davinci-003',
     temp=0.0,
     top_p=1.0,
     tokens=400,
@@ -188,9 +195,12 @@ export class Bot {
     const messageVector = await this.gptEmbedding(message['text'])
 
     /** get bot response */
-    const [links, similarInfo] = await this.retrieveAccessibleSimilarInformation(authToken, messageVector, 4, 2, 3)
+    const [links, similarInfo] = await this.retrieveAccessibleSimilarInformation(authToken, messageVector, 1)
+    console.log("SIMILAR INFO:")
+    console.log(links,similarInfo)
     const prompt = await this.constructPrompt(message['text'], similarInfo)
-    const textResponse = await this.gptCompletion(prompt)
+    // const textResponse = await this.gptCompletion(prompt)
+    const textResponse = "TESTING DEV......."
     const botMessage:Message = {
       'text': textResponse,
       'user': 'Bot',
