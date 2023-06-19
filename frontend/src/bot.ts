@@ -200,7 +200,7 @@ export class Bot {
     console.log(links,similarInfo)
     const prompt = await this.constructPrompt(message['text'], similarInfo)
     // const textResponse = await this.gptCompletion(prompt)
-    const textResponse = "TESTING DEV......."
+    const textResponse = `TESTING DEV.......\n${prompt}`
     const botMessage:Message = {
       'text': textResponse,
       'user': 'Bot',

@@ -38,8 +38,8 @@ export function getDatetime() {
 
 export async function getContentChunks(content:string):Promise<Array<string>> {
   const splitter = new RecursiveCharacterTextSplitter({
-    chunkSize: 10,
-    chunkOverlap: 1,
+    chunkSize: 1000,
+    chunkOverlap: 200,
   });
   return await splitter.splitText(content)
 }
