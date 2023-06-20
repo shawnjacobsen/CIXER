@@ -4,6 +4,8 @@ frontend/node_modules
 
 server/.env
 server/node_modules
+server/functions/.env
+server/functions/node_modules
 
 terminal/venv
 terminal/.env

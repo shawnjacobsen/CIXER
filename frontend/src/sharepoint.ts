@@ -1,7 +1,6 @@
 // Microsoft Graph & Sharepoint functions
 import { getContentChunks, authFetch, crossOriginFetch } from './helpers'
 import { Link } from './Chatbox'
-import pdf from 'pdf-parse';
 
 export const getAccessToken = async (code: string | null, setToken: React.Dispatch<React.SetStateAction<string | null>>) => {
   const tokenURL: string = `https://login.microsoftonline.com/${process.env.REACT_APP_AD_TENANT_ID}/oauth2/v2.0/token`;

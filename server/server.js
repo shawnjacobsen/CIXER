@@ -11,10 +11,10 @@ dotenv.config();
 /** PINECONE SETUP */
 const pinecone = new PineconeClient();
 await pinecone.init({
-  environment: process.env.env_pinecone,
-  apiKey: process.env.key_pinecone,
+  environment: process.env.ENV_PINECONE,
+  apiKey: process.env.KEY_PINECONE,
 });
-const vdb = pinecone.Index(process.env.idx_pinecone);
+const vdb = pinecone.Index(process.env.IDX_PINECONE);
 
 
 const app = express();
@@ -96,8 +96,6 @@ app.post('/api/sharepoint/getDocumentContent', async (req, res) => {
       console.log("\n\n")
   }
 })
-
-
 
 
 const port = process.env.PORT || 5000
