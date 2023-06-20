@@ -188,19 +188,24 @@ export class Bot {
    * get bot response to some message
    * @param message the message to be responded to
    * @param authToken Active Directory user access token
+   * @param queryDocuments whether the prompt should be enriched with additional docs or not
    * @returns the links to documents used to answer the question and the response message
    */
-  public async getResponse(message:Message, authToken:string):Promise<Message> {
+  public async getResponse(message:Message, authToken:string, queryDocuments:boolean):Promise<Message> {
     // vectorize message
     const messageVector = await this.gptEmbedding(message['text'])
 
     /** get bot response */
-    const [links, similarInfo] = await this.retrieveAccessibleSimilarInformation(authToken, messageVector, 1)
+    let links = []
+    let similarInfo = ""
+    if (queryDocuments) {
+      [links, similarInfo] = await this.retrieveAccessibleSimilarInformation(authToken, messageVector, 1)
+    }
     console.log("SIMILAR INFO:")
     console.log(links,similarInfo)
     const prompt = await this.constructPrompt(message['text'], similarInfo)
-    // const textResponse = await this.gptCompletion(prompt)
-    const textResponse = `TESTING DEV.......\n${prompt}`
+    console.log(prompt)
+    const textResponse = await this.gptCompletion(prompt)
     const botMessage:Message = {
       'text': textResponse,
       'user': 'Bot',
