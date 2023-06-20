@@ -201,10 +201,7 @@ export class Bot {
     if (queryDocuments) {
       [links, similarInfo] = await this.retrieveAccessibleSimilarInformation(authToken, messageVector, 1)
     }
-    console.log("SIMILAR INFO:")
-    console.log(links,similarInfo)
     const prompt = await this.constructPrompt(message['text'], similarInfo)
-    console.log(prompt)
     const textResponse = await this.gptCompletion(prompt)
     const botMessage:Message = {
       'text': textResponse,
@@ -220,7 +217,6 @@ export class Bot {
       user: {'metadata': userMetadata, 'message':message['text']},
       info: similarInfo
     }
-    console.log(log)
 
     return botMessage
   }

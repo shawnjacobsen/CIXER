@@ -55,15 +55,18 @@ const ChatBox: React.FC<{ authToken: string }> = ({ authToken }) => {
 							<Col xs={10}>
 								<div className='message-field'>
 									<div className='message-text'>{message.text}</div>
-									<div className='message-links'>
-										{message.links.map((link, i) => (
-											<span className='chat-link'>
-												<a key={i} href={link[1]}>
-													{link[0]}
-												</a>
-											</span>
-										))}
-									</div>
+									{message.links.length > 0 && (
+										<>
+											<br />
+											<div className='message-links'>
+												{message.links.map((link, i) => (
+													<span key={i} className='chat-link'>
+														<a href={link['href']}>{link['name']}</a>
+													</span>
+												))}
+											</div>
+										</>
+									)}
 								</div>
 							</Col>
 						</Row>
@@ -89,7 +92,7 @@ const ChatBox: React.FC<{ authToken: string }> = ({ authToken }) => {
 						/>
 					</Form.Group>
 					<Button variant='secondary' type='submit' disabled={isLoading}>
-						{isLoading ? "Sending..." : "Send"}
+						{isLoading ? 'Sending...' : 'Send'}
 					</Button>
 				</div>
 			</Form>
