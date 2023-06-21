@@ -18,7 +18,7 @@ const ChatBox: React.FC<{ authToken: string }> = ({ authToken }) => {
 	const [bot] = useState<Bot>(new Bot());
 	const [input, setInput] = useState('');
 	const [isLoading, setLoading] = useState<boolean>(false);
-	const [queryDocuments, setQueryDocuments] = useState<boolean>(false);
+	const [queryDocuments, setQueryDocuments] = useState<boolean>(true);
 
 	/** MESSAGE HANDLING */
 	const handleSubmit = async (event) => {
