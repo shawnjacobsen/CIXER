@@ -1,41 +1,63 @@
 import React, { useState, useEffect } from 'react';
-import { Button, Form, Container, Row, Col, Navbar, Spinner, FormCheck } from 'react-bootstrap';
+import { ChatCompletionRequestMessageFunctionCall } from 'openai'
+import { Button, Form, Container, Row, Col, Navbar, Spinner } from 'react-bootstrap';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCommentDots } from '@fortawesome/free-solid-svg-icons';
-import { Bot } from './bot';
+import { cleanStringToAscii } from './helpers'
+import { getOpenAIApiObject, getResponse, getSystemPrompt } from './bot';
+
 export interface Link {
 	name: string;
 	href: string;
 }
+
 export interface Message {
-	text: string;
-	user: 'User' | 'Bot';
-	links: Array<Link>;
+	role: 'user' | 'assistant' | 'system' | 'function'
+	content?: string
+	function_call?:ChatCompletionRequestMessageFunctionCall
+	links?: Array<Link>
+	name?: string
 }
 
 const ChatBox: React.FC<{ authToken: string }> = ({ authToken }) => {
-	const [messages, setMessages] = useState<Array<Message>>([]);
-	const [bot] = useState<Bot>(new Bot());
+	const [chatMessages, setChatMessages] = useState<Array<Message>>([]);
+	const [openai] = useState(getOpenAIApiObject());
 	const [input, setInput] = useState('');
 	const [isLoading, setLoading] = useState<boolean>(false);
-	const [queryDocuments, setQueryDocuments] = useState<boolean>(true);
+
+	// init system prompt
+	useEffect(() => {
+		const initSystemPrompt = async () => {
+			const systemPrompt = await getSystemPrompt()
+			setChatMessages([ { role:'system', content: systemPrompt } ])
+		}
+		initSystemPrompt()
+	},[])
+
+	// logging messages (DEVELOPMENT)
+	useEffect(() => {
+		console.log(chatMessages)
+	},[chatMessages])
 
 	/** MESSAGE HANDLING */
 	const handleSubmit = async (event) => {
 		event.preventDefault();
-
+		// add user message to the chatMessage array
 		const userMessage: Message = {
-			text: input,
-			user: 'User',
-			links: []
+			content: cleanStringToAscii(input), // fix any possible ascii issues
+			role: 'user',
 		};
-		setMessages([...messages, userMessage]);
+		const updatedMessages:Array<Message> = [...chatMessages, {...userMessage}]
+		setChatMessages(updatedMessages);
+		
+		// clear input and set loading to true
 		setInput('');
 		setLoading(true);
 
-		const botMessage: Message = await bot.getResponse(userMessage, authToken, queryDocuments);
+		// Pass the new chatMessage array to getResponse
+		const newMessages: Array<Message> = await getResponse(updatedMessages, authToken, openai);
 		setLoading(false);
-		setMessages((prev) => [...prev, botMessage]);
+		setChatMessages(newMessages);
 	};
 
 	return (
@@ -46,16 +68,18 @@ const ChatBox: React.FC<{ authToken: string }> = ({ authToken }) => {
 				</Navbar.Brand>
 			</Navbar>
 			<div className='messages-container'>
-				{messages.map((message, index) => (
-					<div key={index} className={'card ' + (message.user === 'User' ? 'user-card' : 'bot-card')}>
+				{chatMessages.filter(message => 
+				(message['role'] === 'user' || message['role'] === 'assistant') && message['content']
+					).map((message, index) => (
+					<div key={index} className={'card ' + (message.role === 'user' ? 'user-card' : 'bot-card')}>
 						<Row>
 							<Col xs={2}>
-								<strong>{message.user === 'User' ? 'User:' : 'ChairGPT:'}</strong>
+								<strong>{message.role === 'user' ? 'User:' : 'ChairGPT:'}</strong>
 							</Col>
 							<Col xs={10}>
 								<div className='message-field'>
-									<div className='message-text'>{message.text}</div>
-									{message.links.length > 0 && (
+									<div className='message-text'>{message.content}</div>
+									{message.links && message.links.length > 0 && (
 										<>
 											<br />
 											<div className='message-links'>
@@ -75,13 +99,6 @@ const ChatBox: React.FC<{ authToken: string }> = ({ authToken }) => {
 				{isLoading && <Spinner animation='border' />}
 			</div>
 			<Form onSubmit={handleSubmit} className='input-form'>
-				<FormCheck
-					type='checkbox'
-					className='checkbox-field'
-					label='Query for Documents'
-					checked={queryDocuments}
-					onChange={(e) => setQueryDocuments(e.target.checked)}
-				/>
 				<div className='input-container'>
 					<Form.Group className='input-field'>
 						<Form.Control
