@@ -100,7 +100,7 @@ export async function getSharepointDocumentLink(authToken:string, documentId:str
 export async function getSharepointChunk(authToken:string, document_id:string, chunkIndex:number):Promise<string> {
   // get entire document content
   const full_file_text = await getSharepointDocument(authToken, document_id)
-  console.log("recieved document text:",full_file_text.slice(0,200))
+
   // split into normal chunks using standard method
   const chunks = await getContentChunks(full_file_text)
   if (chunkIndex >= chunks.length) chunkIndex = chunks.length - 1
