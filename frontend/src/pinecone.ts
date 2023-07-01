@@ -33,7 +33,7 @@ export class Pinecone {
    * @param includeValues include the vector values
    * @param includeMetadata include additional vector metadata
    * @param filter Pinecone filters
-   * @returns the list of matches [{'id','score','values', 'metadata':{ 'document_id', 'chunk_index' }}]
+   * @returns the list of matches [{'id','score','values', 'metadata':{ 'item_id', 'chunk_index' }}]
    */
   public async queryVectors(vector:Array<number>,
     topK:number,

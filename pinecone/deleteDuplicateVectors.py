@@ -3,13 +3,13 @@
 import os
 import pinecone
 from dotenv import load_dotenv
-from util import getAllVectors
+from util.Pinecone import getAllVectors
 load_dotenv()
 
-vdb_index_name = os.getenv("idx_pinecone")
+vdb_index_name = os.getenv("pinecone_idx")
 pinecone.init(
-  api_key=os.getenv("key_pinecone"),
-  environment=os.getenv("env_pinecone")
+  api_key=os.getenv("pinecone_key"),
+  environment=os.getenv("pinecone_env")
 )
 index = pinecone.Index(vdb_index_name)
 # get all vectors
@@ -46,5 +46,5 @@ print(f"\n\n found {len(duplicate_ids)} duplicated sets")
 
 # delete duplicates
 print("Deleting duplicates by their id...")
-# delete_response = index.delete(ids=duplicate_ids)
-# print(delete_response)
+delete_response = index.delete(ids=duplicate_ids)
+print(delete_response)

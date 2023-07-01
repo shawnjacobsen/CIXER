@@ -2,16 +2,17 @@ import reportWebVitals from './reportWebVitals';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import ReactDOM from 'react-dom/client';
 import React from 'react';
+import { MsalProvider } from "@azure/msal-react";
+import { publicClientApplication } from './AuthProvider'
 import './index.css';
 import App from './App';
-import { AuthProvider } from './AuthProvider'
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
-    <AuthProvider>
+    <MsalProvider instance={publicClientApplication}>
       <App />
-    </AuthProvider>
+    </MsalProvider>
   </React.StrictMode>
 );
 

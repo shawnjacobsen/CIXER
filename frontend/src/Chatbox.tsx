@@ -20,7 +20,7 @@ export interface Message {
 	name?: string;
 }
 
-const ChatBox: React.FC<{ authToken: string }> = ({ authToken }) => {
+const ChatBox: React.FC<{ authToken: string, Logout:()=>React.JSX.Element }> = ({ authToken, Logout}) => {
 	const [chatMessages, setChatMessages] = useState<Array<Message>>([]);
 	const [openai] = useState(getOpenAIApiObject());
 	const [input, setInput] = useState('');
@@ -80,6 +80,7 @@ const ChatBox: React.FC<{ authToken: string }> = ({ authToken }) => {
 				<Navbar.Brand href='#'>
 					<FontAwesomeIcon icon={faCommentDots} /> ChairGPT
 				</Navbar.Brand>
+					<Logout/>
 			</Navbar>
 			<div className='messages-container'>
 				{chatMessages

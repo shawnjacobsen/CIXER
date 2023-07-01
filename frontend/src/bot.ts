@@ -1,9 +1,16 @@
 // handle any bot related behavior including Q/A and embedding
-import { Configuration, OpenAIApi, CreateChatCompletionRequest, CreateChatCompletionResponse, ChatCompletionFunctions } from 'openai';
-import { AxiosResponse } from 'axios';
-import { getSharepointChunk, userHasAccessToFile, getSharepointDocumentLink } from './sharepoint';
-import { sleep, getDatetime } from './helpers';
+import { Configuration, OpenAIApi, CreateChatCompletionRequest, ChatCompletionFunctions } from 'openai';
+import { getSharepointChunk, getSharepointDocumentLink } from './sharepoint';
 import { Link, Message } from './Chatbox';
+
+export interface VectorMetadata {
+	name: string				// the file's name
+  drive_id: string;		// the drive id (id of some personal OneDrive, Sharepoint site, etc.)
+  item_id: string;		// the id of the item
+  location: 'onedrive' | 'sharepoint';
+	chunk_index?: number // in the chunked (Array<string>) version of the document, the index the vector refers to out of the entire item
+	user?: string				// user associated with the parent drive
+};
 
 /**
  * retrieve the an authenticated version of the openai object
@@ -50,17 +57,19 @@ export async function retrieveAccessibleSimilarInformation(
 	message: string,
 	minNumDocuments: number = 2,
 	numDocumentsToPoll: number = 2,
-	maxTries: number = 3,
+	maxTries: number = 10,
 	infoSeparator: string = ' -- '
 ): Promise<[Array<Link>, string]> {
+
+	let previouslyQueriedVectors = []; 		// vectors queried in a previous iteration so should not be queried again
+	let itemIdFilter = [];								// items that should not queried (e.g. user does not have access)
+	let numAccessibleDocuments = 0;				// number of accessible documents discovered
+	let accessibleDocuments = '';					// concatenated string of accessible documents to be returned
+	let documentLinks: Array<Link> = [];	// array of links corresponding to each returned document
+	let tries = 0;												// track number of while-loop iterations
+
 	// vectorize message
 	const vector = await gptEmbedding(message, openai);
-
-	let previouslyQueriedVectors = [];
-	let numAccessibleDocuments = 0;
-	let accessibleDocuments = '';
-	let documentLinks: Array<Link> = [];
-	let tries = 0;
 
 	while (numAccessibleDocuments < minNumDocuments && tries < maxTries) {
 		// for current try, retrieve numDocumentsToPoll + number of previously queried vectors to get new vectors
@@ -88,12 +97,17 @@ export async function retrieveAccessibleSimilarInformation(
 
 		// if the user has access to the chunk's content, append it to the result
 		const promises = matches.map(async (match) => {
-			const docId = match['metadata']['document_id'];
-			const chunkIndex = match['metadata']['chunk_index'];
-			const userHasAccess = await userHasAccessToFile(authToken, docId);
-			if (userHasAccess === true) {
-				const docContents = await getSharepointChunk(authToken, docId, chunkIndex);
-				const link = await getSharepointDocumentLink(authToken, docId);
+			const metadata:VectorMetadata = match['metadata']
+			const driveId = metadata['drive_id']
+			const docId = metadata['item_id'];
+			const chunkIndex = Math.floor(metadata['chunk_index']);
+			const location = metadata['location'];
+
+			// attempt to get the chunk TODO
+			const docContents = await getSharepointChunk(authToken, driveId, docId, chunkIndex);
+			if (docContents) {
+				
+				const link = await getSharepointDocumentLink(authToken, driveId, docId);
 				documentLinks.push(link);
 				accessibleDocuments += docContents + infoSeparator;
 				numAccessibleDocuments += 1;
@@ -178,7 +192,7 @@ export function getAvailableGPTFunctions(): Array<ChatCompletionFunctions> {
 					},
 					minNumDocuments: {
 						type: 'integer',
-            description: "The minimum number of 1000 character document chunks likely required to properly answer the user's question. This number should be estimated based on the complexity and breadth of the user's query."
+            description: "The minimum number of 1000 character document chunks likely required to properly answer the user's question. This number should be estimated based on the complexity and breadth of the user's query. A more generic question like summarization will require more document chunks."
 					}
 				},
 				required: ['message','minNumDocuments']
