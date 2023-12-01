@@ -5,4 +5,4 @@ This applications connects to external services such as MS Onedrive to automatic
 ## Demo Usage
 This demo shows the model querying documents from a user's cloud storage (OneDrive) and referencing these documents as it sees fit when answering questions from the user.
 
-![ChairGPT Demo](https://github.com/shawnjacobsen/chairGPT/blob/main/Media/ChairGPT%20Demo.mp4)
+https://github.com/shawnjacobsen/chairGPT/blob/main/Media/ChairGPT%20Demo.mp4
