@@ -11,41 +11,40 @@
   background-color: #18181a;
   color: white;
   overflow-x: hidden;
+  width:100%;
+  display: flex;
+  align-items: center;
+}
+
+.app-navbar {
+  width: 80%;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+}
+
+.logout-btn {
+  padding: 4px 12px;
 }
 
 .messages-container {
+  position: relative;
   overflow-y: auto;
-  width: 100%;
+  width: 80%;
   flex-grow: 1;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   justify-content: flex-start;
   margin-bottom: 20px;
+  max-height: 85%;
 }
 
-.input-form {
-  margin-top: auto;
-  width: 100%;
+.spinner-container {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start; /* Align items to the start */
-  padding: 15px;
-}
-
-.input-container {
-  display: flex; /* Create a flex container */
-  width: 100%; /* Take full width */
-}
-
-.input-field {
-  flex: 1; /* Take all available space */
-  margin-right: 10px;
-}
-
-.checkbox-field {
-  width: auto;
-  margin-bottom: 10px;
+  justify-content: center;
+  height: 10vh;
+  width: 100%;
 }
 
 .message-links {
@@ -61,7 +60,8 @@
   text-align: left;
   border: none;
   margin: 10px;
-  width: 90%;
+  margin-left: 0px;
+  width: 98%;
 }
 
 .user-card {
@@ -73,13 +73,53 @@
   margin-bottom: 40px;
 }
 
-button {
-  padding: auto 20px;
-  background-color: #3b3b3b;
-  color: white;
-  border: none;
+.input-form {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  width: 80%;
+  transform: translateX(-50%);
+  padding: 15px;
 }
 
-button:hover {
-  background-color: #555;
+.input-field-group {
+  width: 100%;
+  margin-right: 10px; /* add space between button and the input group */
+}
+
+.input-field-group textarea.input-field {
+  width:100%;
+  resize: none;
+  padding: 16px;
+  padding-right: 6rem;
+  max-height: 12em;
+  min-height: 1em;
+  overflow-y: auto;
+  border:none;
+  background-color: #37373d;
+  color: white;
+}
+
+.input-field-group textarea.input-field::placeholder {
+  color: rgb(173, 173, 173);
+}
+
+button.input-submit-btn {
+  padding: 4px 20px;
+  bottom: 11px;
+  right: 15px;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background-color: #37373d;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #868694;
+  border-radius: 9999px;
+  border-width: 1px;
 }

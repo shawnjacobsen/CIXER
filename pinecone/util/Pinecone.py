@@ -1,7 +1,8 @@
 import pinecone
 import numpy as np
+import requests
 
-def getAllVectors(index_name:str, totalVectors:int):
+def getAllVectors(index_name:str, totalVectors:int, include_values=True):
   # Get the description of the index
   index_description = pinecone.describe_index(index_name)
 
@@ -20,7 +21,7 @@ def getAllVectors(index_name:str, totalVectors:int):
       vector=random_vector.tolist(),
       top_k=totalVectors,
       include_metadata=True,
-      include_values=True
+      include_values=include_values
     )
     return query_result
   else:

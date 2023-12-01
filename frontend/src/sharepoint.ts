@@ -55,13 +55,15 @@ export async function sendMSGraphRequest(authToken:string, path:string, method:s
 /**
  * Get text content from Sharepoint file
  * @param authToken Sharepoint Auth Token
+ * @param driveId id of the drive the file is in
  * @param documentId id of file in sharepoint
  */
-export async function getSharepointDocument(authToken:string, documentId:string):Promise<string> {
+export async function getSharepointDocument(authToken:string, driveId:string, documentId:string):Promise<string|null> {
   try {
     // get document's text from server
     const body = {
       'authToken': authToken,
+      'driveId': driveId,
       'documentId': documentId
     }
     const url = `${process.env.REACT_APP_SERVER_URL}/api/sharepoint/getDocumentContent`
@@ -73,14 +75,21 @@ export async function getSharepointDocument(authToken:string, documentId:string)
     return await res.text();
   } catch (error) {
     console.error(error);
-    throw error;
+    return null
   }
 }
 
-export async function getSharepointDocumentLink(authToken:string, documentId:string):Promise<Link> {
+/**
+ * 
+ * @param authToken Active Directory Auth Token
+ * @param driveId id of the drive the file is in
+ * @param documentId id of file in sharepoint
+ * @returns 
+ */
+export async function getSharepointDocumentLink(authToken:string, driveId:string, documentId:string):Promise<Link> {
   let link:Link = {name:"",href:""}
   try {
-    const res = await sendMSGraphRequest(authToken, `me/drive/items/${documentId}`,'GET')
+    const res = await sendMSGraphRequest(authToken, `drives/${driveId}/items/${documentId}`,'GET')
     const body = await res.json()
     link['name'] = body.name
     link['href']  = body.webUrl
@@ -92,17 +101,19 @@ export async function getSharepointDocumentLink(authToken:string, documentId:str
 
 /**
  * Get document chunk (piece) from Sharepoint file
- * @param authToken Sharepoint Auth Token
- * @param document_id id of file in sharepoint
+ * @param authToken Active Directory Auth Token
+ * @param driveId id of the drive the file is in
+ * @param documentId id of file in sharepoint
  * @param chunkIndex index of chunk in document. document_index > len(<document chunks>) => document_index = len(<document chunks>) - 1
- * @returns specific indicated chunk as a string of text
+ * @returns specific indicated chunk as a string of text or null if could not retrieve (e.g. insufficient permissions)
  */
-export async function getSharepointChunk(authToken:string, document_id:string, chunkIndex:number):Promise<string> {
+export async function getSharepointChunk(authToken:string, driveId:string, documentId:string, chunkIndex:number):Promise<string|null> {
   // get entire document content
-  const full_file_text = await getSharepointDocument(authToken, document_id)
-  console.log("recieved document text:",full_file_text.slice(0,200))
+  const fullFileText = await getSharepointDocument(authToken, driveId, documentId)
+  if (!fullFileText) { return null }
+  
   // split into normal chunks using standard method
-  const chunks = await getContentChunks(full_file_text)
+  const chunks = await getContentChunks(fullFileText)
   if (chunkIndex >= chunks.length) chunkIndex = chunks.length - 1
 
   return chunks[chunkIndex]
@@ -132,18 +143,17 @@ export async function getUserEmailByToken(authToken:string):Promise<string> {
  */
 export async function userHasAccessToFile(authToken:string, documentId:string):Promise<boolean> {
   const permissionEndpoint = `me/drive/items/${documentId}`
-  // try {
-  //   const response = sendMSGraphRequest(authToken, permissionEndpoint, "GET")
-  //   // TODO response code management
-  //   if response.code === 200 {
-  //     return true 
-  //   } else if (response.code === 404){
-  //     return false
-  //   } else {
-  //     throw Error(response)
-  //   }
-  // } catch(e) {
-  //   return `ERROR: cannot determine file access.\n${e}`
-  // }
-  return true
+  try {
+    const response = await sendMSGraphRequest(authToken, permissionEndpoint, "GET")
+    if (response.status === 200) {
+      return true;
+    } else if (response.status === 404) {
+      return false;
+    } else {
+      throw new Error(`Error occurred while checking access to file: ${response.statusText}`);
+    }
+  } catch(e) {
+    console.log(`ERROR: cannot determine file access.\n${e}`)
+    return false
+  }
 }
